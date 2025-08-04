@@ -1,5 +1,82 @@
 // Chart management for Revnet Calculator
 const ChartManager = {
+  // Helper function to generate comprehensive tooltip context
+  generateTooltipContext(day, chartType = 'general') {
+    const dayData = State.calculationResults.find(r => r.day === day);
+    
+    if (!dayData || !dayData.events || dayData.events.length === 0) {
+      return '';
+    }
+    
+    let contextInfo = [];
+    dayData.events.forEach(event => {
+      switch (event.type) {
+        case 'investment':
+          contextInfo.push(`• Investment of ${Utils.formatCurrency(event.amount)} created new tokens`);
+          contextInfo.push(`• Tokens distributed to splits and ${event.label}`);
+          contextInfo.push(`• Treasury backing increased by ${Utils.formatCurrency(event.amount)}`);
+          break;
+        case 'revenue':
+          contextInfo.push(`• Revenue of ${Utils.formatCurrency(event.amount)} created new tokens`);
+          contextInfo.push(`• Tokens distributed to splits and ${event.label}`);
+          contextInfo.push(`• Treasury backing increased by ${Utils.formatCurrency(event.amount)}`);
+          break;
+        case 'loan':
+        case 'angelinvestor-loan':
+        case 'team-loan':
+          // Calculate actual loan amount
+          const stage = StageManager.getStageAtDay(day);
+          let loanAmount = 0;
+          if (stage) {
+            const stateBefore = StateMachine.getStateAtDay(day - 1);
+            loanAmount = StateMachine.calculateCashOutValueForEvent(event.amount, stateBefore.totalSupply, stateBefore.revnetBacking, stage.cashOutTax);
+          }
+          const internalFee = loanAmount * 0.025;
+          const protocolFee = loanAmount * 0.035;
+          contextInfo.push(`• ${event.label} took out a loan of ${Utils.formatCurrency(loanAmount)}`);
+          contextInfo.push(`• ${Utils.formatCurrency(event.amount)} tokens locked as collateral`);
+          contextInfo.push(`• Internal fee of ${Utils.formatCurrency(internalFee)} added to treasury`);
+          contextInfo.push(`• Protocol fee of ${Utils.formatCurrency(protocolFee)} paid to external entities`);
+          contextInfo.push(`• Treasury reduced by ${Utils.formatCurrency(loanAmount - internalFee)}`);
+          break;
+        case 'payback-loan':
+        case 'angelinvestor-repay':
+        case 'team-repay':
+          // Calculate actual repayment amount
+          const repayStage = StageManager.getStageAtDay(day);
+          let repaymentAmount = 0;
+          if (repayStage) {
+            const stateBefore = StateMachine.getStateAtDay(day - 1);
+            repaymentAmount = StateMachine.calculateCashOutValueForEvent(event.amount, stateBefore.totalSupply, stateBefore.revnetBacking, repayStage.cashOutTax);
+          }
+          contextInfo.push(`• ${event.label} paid back ${Utils.formatCurrency(repaymentAmount)} of loan`);
+          contextInfo.push(`• ${Utils.formatCurrency(event.amount)} tokens unlocked from collateral`);
+          contextInfo.push(`• Interest fees added to treasury as revenue`);
+          contextInfo.push(`• Treasury increased by ${Utils.formatCurrency(repaymentAmount)}`);
+          break;
+        case 'cashout':
+        case 'angelinvestor-cashout':
+        case 'team-cashout':
+          // Calculate actual cash out amount
+          const cashOutStage = StageManager.getStageAtDay(day);
+          let cashOutAmount = 0;
+          if (cashOutStage) {
+            const stateBefore = StateMachine.getStateAtDay(day - 1);
+            cashOutAmount = StateMachine.calculateCashOutValueForEvent(event.amount, stateBefore.totalSupply, stateBefore.revnetBacking, cashOutStage.cashOutTax);
+          }
+          const externalFee = cashOutAmount * 0.05;
+          contextInfo.push(`• ${event.label} cashed out ${Utils.formatCurrency(event.amount)} tokens`);
+          contextInfo.push(`• Received ${Utils.formatCurrency(cashOutAmount)} from treasury`);
+          contextInfo.push(`• External fee of ${Utils.formatCurrency(externalFee)} paid to protocol`);
+          contextInfo.push(`• Tokens burned from supply`);
+          contextInfo.push(`• Treasury reduced by ${Utils.formatCurrency(cashOutAmount)}`);
+          break;
+      }
+    });
+    
+    return contextInfo.length > 0 ? '\n' + contextInfo.join('\n') : '';
+  },
+
   createAll() {
     if (!State.calculationResults || State.calculationResults.length === 0) {
       return;
@@ -49,42 +126,7 @@ const ChartManager = {
               label: Utils.formatTooltipLabel,
               afterBody: function(context) {
                 const day = parseInt(context[0].label);
-                const dayData = State.calculationResults.find(r => r.day === day);
-                
-                if (!dayData || !dayData.events || dayData.events.length === 0) {
-                  return '';
-                }
-                
-                let contextInfo = [];
-                dayData.events.forEach(event => {
-                  switch (event.type) {
-                    case 'investment':
-                      contextInfo.push(`• Investment of ${Utils.formatCurrency(event.amount)} created new tokens`);
-                      contextInfo.push(`• Distributed to splits and ${event.label}`);
-                      break;
-                    case 'revenue':
-                      contextInfo.push(`• Revenue of ${Utils.formatCurrency(event.amount)} created new tokens`);
-                      contextInfo.push(`• Distributed to splits and ${event.label}`);
-                      break;
-                    case 'loan':
-                    case 'angelinvestor-loan':
-                      contextInfo.push(`• ${event.label} took out a loan of ${Utils.formatCurrency(event.amount)}`);
-                      contextInfo.push(`• Tokens locked as collateral`);
-                      break;
-                    case 'payback-loan':
-                    case 'angelinvestor-repay':
-                      contextInfo.push(`• ${event.label} paid back ${Utils.formatCurrency(event.amount)} of loan`);
-                      contextInfo.push(`• Tokens unlocked from collateral`);
-                      break;
-                    case 'cashout':
-                    case 'angelinvestor-cashout':
-                      contextInfo.push(`• ${event.label} cashed out ${(event.amount / 1000000).toFixed(1)}M tokens`);
-                      contextInfo.push(`• Tokens burned from supply`);
-                      break;
-                  }
-                });
-                
-                return contextInfo.length > 0 ? '\n' + contextInfo.join('\n') : '';
+                return ChartManager.generateTooltipContext(day, 'token');
               }
             }
           }
@@ -132,27 +174,7 @@ const ChartManager = {
               label: Utils.formatTooltipLabel,
               afterBody: function(context) {
                 const day = parseInt(context[0].label);
-                const dayData = State.calculationResults.find(r => r.day === day);
-                
-                if (!dayData || !dayData.events || dayData.events.length === 0) {
-                  return '';
-                }
-                
-                let contextInfo = [];
-                dayData.events.forEach(event => {
-                  switch (event.type) {
-                    case 'team-loan':
-                      contextInfo.push(`• Team took out a loan of ${Utils.formatCurrency(event.amount)}`);
-                      contextInfo.push(`• Tokens locked as collateral`);
-                      break;
-                    case 'team-repay':
-                      contextInfo.push(`• Team paid back ${Utils.formatCurrency(event.amount)} of loan`);
-                      contextInfo.push(`• Tokens unlocked from collateral`);
-                      break;
-                  }
-                });
-                
-                return contextInfo.length > 0 ? '\n' + contextInfo.join('\n') : '';
+                return ChartManager.generateTooltipContext(day, 'team-loan');
               }
             }
           }
@@ -193,27 +215,7 @@ const ChartManager = {
               label: Utils.formatTooltipLabel,
               afterBody: function(context) {
                 const day = parseInt(context[0].label);
-                const dayData = State.calculationResults.find(r => r.day === day);
-                
-                if (!dayData || !dayData.events || dayData.events.length === 0) {
-                  return '';
-                }
-                
-                let contextInfo = [];
-                dayData.events.forEach(event => {
-                  switch (event.type) {
-                    case 'angelinvestor-loan':
-                      contextInfo.push(`• ${event.label} took out a loan of ${Utils.formatCurrency(event.amount)}`);
-                      contextInfo.push(`• Tokens locked as collateral`);
-                      break;
-                    case 'angelinvestor-repay':
-                      contextInfo.push(`• ${event.label} paid back ${Utils.formatCurrency(event.amount)} of loan`);
-                      contextInfo.push(`• Tokens unlocked from collateral`);
-                      break;
-                  }
-                });
-                
-                return contextInfo.length > 0 ? '\n' + contextInfo.join('\n') : '';
+                return ChartManager.generateTooltipContext(day, 'investor-loan');
               }
             }
           }
@@ -254,32 +256,7 @@ const ChartManager = {
               label: Utils.formatTooltipLabel,
               afterBody: function(context) {
                 const day = parseInt(context[0].label);
-                const dayData = State.calculationResults.find(r => r.day === day);
-                if (!dayData || !dayData.events || dayData.events.length === 0) return '';
-                let contextInfo = [];
-                dayData.events.forEach(event => {
-                  switch (event.type) {
-                    case 'investment':
-                      contextInfo.push(`• ${event.label} invested $${Utils.formatCurrency(event.amount)}`);
-                      break;
-                    case 'revenue':
-                      contextInfo.push(`• Revenue of $${Utils.formatCurrency(event.amount)}`);
-                      break;
-                    case 'loan':
-                    case event.type.endsWith('-loan'):
-                      contextInfo.push(`• ${event.label} took out loan with ${event.amount.toLocaleString()} tokens collateralized`);
-                      break;
-                    case 'payback-loan':
-                    case event.type.endsWith('-repay'):
-                      contextInfo.push(`• ${event.label} repaid ${event.amount.toLocaleString()} tokens`);
-                      break;
-                    case 'cashout':
-                    case event.type.endsWith('-cashout'):
-                      contextInfo.push(`• ${event.label} cashed out ${event.amount.toLocaleString()} tokens`);
-                      break;
-                  }
-                });
-                return contextInfo.length > 0 ? '\n' + contextInfo.join('\n') : '';
+                return ChartManager.generateTooltipContext(day, 'loan-potential');
               }
             }
           }
@@ -320,22 +297,7 @@ const ChartManager = {
               label: Utils.formatTooltipLabel,
               afterBody: function(context) {
                 const day = parseInt(context[0].label);
-                const dayData = State.calculationResults.find(r => r.day === day);
-                if (!dayData || !dayData.events || dayData.events.length === 0) return '';
-                let contextInfo = [];
-                dayData.events.forEach(event => {
-                  switch (event.type) {
-                    case 'loan':
-                    case event.type.endsWith('-loan'):
-                      contextInfo.push(`• ${event.label} took out loan with ${event.amount.toLocaleString()} tokens collateralized`);
-                      break;
-                    case 'payback-loan':
-                    case event.type.endsWith('-repay'):
-                      contextInfo.push(`• ${event.label} repaid ${event.amount.toLocaleString()} tokens`);
-                      break;
-                  }
-                });
-                return contextInfo.length > 0 ? '\n' + contextInfo.join('\n') : '';
+                return ChartManager.generateTooltipContext(day, 'outstanding-loans');
               }
             }
           }
@@ -376,32 +338,7 @@ const ChartManager = {
               label: Utils.formatTooltipLabel,
               afterBody: function(context) {
                 const day = parseInt(context[0].label);
-                const dayData = State.calculationResults.find(r => r.day === day);
-                if (!dayData || !dayData.events || dayData.events.length === 0) return '';
-                let contextInfo = [];
-                dayData.events.forEach(event => {
-                  switch (event.type) {
-                    case 'investment':
-                      contextInfo.push(`• ${event.label} invested $${Utils.formatCurrency(event.amount)}`);
-                      break;
-                    case 'revenue':
-                      contextInfo.push(`• Revenue of $${Utils.formatCurrency(event.amount)}`);
-                      break;
-                    case 'loan':
-                    case event.type.endsWith('-loan'):
-                      contextInfo.push(`• ${event.label} took out loan with ${event.amount.toLocaleString()} tokens collateralized`);
-                      break;
-                    case 'payback-loan':
-                    case event.type.endsWith('-repay'):
-                      contextInfo.push(`• ${event.label} repaid ${event.amount.toLocaleString()} tokens`);
-                      break;
-                    case 'cashout':
-                    case event.type.endsWith('-cashout'):
-                      contextInfo.push(`• ${event.label} cashed out ${event.amount.toLocaleString()} tokens`);
-                      break;
-                  }
-                });
-                return contextInfo.length > 0 ? '\n' + contextInfo.join('\n') : '';
+                return ChartManager.generateTooltipContext(day, 'backing');
               }
             }
           }
@@ -444,32 +381,7 @@ const ChartManager = {
               },
               afterBody: function(context) {
                 const day = parseInt(context[0].label);
-                const dayData = State.calculationResults.find(r => r.day === day);
-                if (!dayData || !dayData.events || dayData.events.length === 0) return '';
-                let contextInfo = [];
-                dayData.events.forEach(event => {
-                  switch (event.type) {
-                    case 'investment':
-                      contextInfo.push(`• ${event.label} invested $${Utils.formatCurrency(event.amount)}`);
-                      break;
-                    case 'revenue':
-                      contextInfo.push(`• Revenue of $${Utils.formatCurrency(event.amount)}`);
-                      break;
-                    case 'loan':
-                    case event.type.endsWith('-loan'):
-                      contextInfo.push(`• ${event.label} took out loan with ${event.amount.toLocaleString()} tokens collateralized`);
-                      break;
-                    case 'payback-loan':
-                    case event.type.endsWith('-repay'):
-                      contextInfo.push(`• ${event.label} repaid ${event.amount.toLocaleString()} tokens`);
-                      break;
-                    case 'cashout':
-                    case event.type.endsWith('-cashout'):
-                      contextInfo.push(`• ${event.label} cashed out ${event.amount.toLocaleString()} tokens`);
-                      break;
-                  }
-                });
-                return contextInfo.length > 0 ? '\n' + contextInfo.join('\n') : '';
+                return ChartManager.generateTooltipContext(day, 'issuance-price');
               }
             }
           }
@@ -509,6 +421,10 @@ const ChartManager = {
             callbacks: {
               label: function(context) {
                 return context.dataset.label + ': $' + context.parsed.y.toFixed(2);
+              },
+              afterBody: function(context) {
+                const day = parseInt(context[0].label);
+                return ChartManager.generateTooltipContext(day, 'cash-out-value');
               }
             }
           }
@@ -551,32 +467,7 @@ const ChartManager = {
               },
               afterBody: function(context) {
                 const day = parseInt(context[0].label);
-                const dayData = State.calculationResults.find(r => r.day === day);
-                if (!dayData || !dayData.events || dayData.events.length === 0) return '';
-                let contextInfo = [];
-                dayData.events.forEach(event => {
-                  switch (event.type) {
-                    case 'investment':
-                      contextInfo.push(`• ${event.label} invested $${Utils.formatCurrency(event.amount)}`);
-                      break;
-                    case 'revenue':
-                      contextInfo.push(`• Revenue of $${Utils.formatCurrency(event.amount)}`);
-                      break;
-                    case 'loan':
-                    case event.type.endsWith('-loan'):
-                      contextInfo.push(`• ${event.label} took out loan with ${event.amount.toLocaleString()} tokens collateralized`);
-                      break;
-                    case 'payback-loan':
-                    case event.type.endsWith('-repay'):
-                      contextInfo.push(`• ${event.label} repaid ${event.amount.toLocaleString()} tokens`);
-                      break;
-                    case 'cashout':
-                    case event.type.endsWith('-cashout'):
-                      contextInfo.push(`• ${event.label} cashed out ${event.amount.toLocaleString()} tokens`);
-                      break;
-                  }
-                });
-                return contextInfo.length > 0 ? '\n' + contextInfo.join('\n') : '';
+                return ChartManager.generateTooltipContext(day, 'distribution');
               }
             }
           }
@@ -620,22 +511,7 @@ const ChartManager = {
               },
               afterBody: function(context) {
                 const day = parseInt(context[0].label);
-                const dayData = State.calculationResults.find(r => r.day === day);
-                if (!dayData || !dayData.events || dayData.events.length === 0) return '';
-                let contextInfo = [];
-                dayData.events.forEach(event => {
-                  switch (event.type) {
-                    case 'loan':
-                    case event.type.endsWith('-loan'):
-                      contextInfo.push(`• ${event.label} took out loan with ${event.amount.toLocaleString()} tokens collateralized`);
-                      break;
-                    case 'payback-loan':
-                    case event.type.endsWith('-repay'):
-                      contextInfo.push(`• ${event.label} repaid ${event.amount.toLocaleString()} tokens`);
-                      break;
-                  }
-                });
-                return contextInfo.length > 0 ? '\n' + contextInfo.join('\n') : '';
+                return ChartManager.generateTooltipContext(day, 'dilution');
               }
             }
           }
@@ -702,35 +578,9 @@ const ChartManager = {
                 ];
                 
                 // Add context based on events
-                const dayEvents = State.calculationResults.find(r => r.day === day)?.events || [];
-                let contextInfo = [];
+                const contextInfo = ChartManager.generateTooltipContext(day, 'cash-flow');
                 
-                dayEvents.forEach(event => {
-                  switch (event.type) {
-                    case 'investment':
-                      contextInfo.push(`• Investment of ${Utils.formatCurrency(event.amount)} flowed into Revnet`);
-                      contextInfo.push(`• Added to treasury backing`);
-                      break;
-                    case 'revenue':
-                      contextInfo.push(`• Service revenue of ${Utils.formatCurrency(event.amount)} flowed into Revnet`);
-                      contextInfo.push(`• Added to treasury backing`);
-                      break;
-                    case event.type.endsWith('-loan'):
-                      const loanLabel = event.type.replace('-loan', '');
-                      contextInfo.push(`• ${loanLabel} took out loan with ${(event.amount / 1000000).toFixed(1)}M tokens collateralized`);
-                      break;
-                    case event.type.endsWith('-repay'):
-                      const repayLabel = event.type.replace('-repay', '');
-                      contextInfo.push(`• ${repayLabel} repaid ${(event.amount / 1000000).toFixed(1)}M tokens`);
-                      break;
-                    case event.type.endsWith('-cashout'):
-                      const cashoutLabel = event.type.replace('-cashout', '');
-                      contextInfo.push(`• ${cashoutLabel} cashed out ${(event.amount / 1000000).toFixed(1)}M tokens`);
-                      break;
-                  }
-                });
-                
-                return '\n' + breakdown.join('\n') + (contextInfo.length > 0 ? '\n\n' + contextInfo.join('\n') : '');
+                return '\n' + breakdown.join('\n') + contextInfo;
               }
             }
           }
@@ -767,7 +617,11 @@ const ChartManager = {
         plugins: {
           tooltip: {
             callbacks: {
-              label: Utils.formatTooltipLabel
+              label: Utils.formatTooltipLabel,
+              afterBody: function(context) {
+                const day = parseInt(context[0].label);
+                return ChartManager.generateTooltipContext(day, 'cash-flow-fees');
+              }
             }
           }
         },
@@ -803,7 +657,11 @@ const ChartManager = {
         plugins: {
           tooltip: {
             callbacks: {
-              label: Utils.formatTooltipLabel
+              label: Utils.formatTooltipLabel,
+              afterBody: function(context) {
+                const day = parseInt(context[0].label);
+                return ChartManager.generateTooltipContext(day, 'token-valuation');
+              }
             }
           }
         },
@@ -842,6 +700,10 @@ const ChartManager = {
             callbacks: {
               label: function(context) {
                 return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + '%';
+              },
+              afterBody: function(context) {
+                const day = parseInt(context[0].label);
+                return ChartManager.generateTooltipContext(day, 'token-performance');
               }
             }
           }
@@ -1757,6 +1619,12 @@ const ChartManager = {
         
         // Calculate cash out value per token
         const cashOutValue = StateMachine.calculateCashOutValueForEvent(1, result.totalSupply, result.revnetBacking, stage.cashOutTax);
+        
+        // Get locked tokens (collateral for loans)
+        const lockedTokens = result.loanHistory[label] ? 
+          result.loanHistory[label].reduce((sum, loan) => sum + loan.remainingTokens, 0) : 0;
+        
+        // Calculate value of all tokens (including locked collateral)
         const currentValue = totalTokens * cashOutValue;
         
         // Calculate total amount cashed out by this entity UP TO THIS DAY ONLY
@@ -1789,7 +1657,7 @@ const ChartManager = {
           }
         });
         
-        // Total value includes current token value + amount cashed out
+        // Total value includes current token value (including locked collateral) + amount cashed out
         const totalValue = currentValue + totalCashedOut;
         
         if (invested > 0) {
