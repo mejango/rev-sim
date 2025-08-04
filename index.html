@@ -1,0 +1,177 @@
+
+<!--
+REVNET CALCULATOR - COMPREHENSIVE EXPLAINER
+============================================
+
+WHAT IS A REVNET?
+-----------------
+A Revnet (Revenue Network) is a financial protocol that allows entities to:
+1. Invest capital and receive tokens representing ownership
+2. Take loans against their token holdings as collateral
+3. Generate revenue through fees and interest
+4. Cash out tokens for underlying treasury value
+
+CORE MECHANICS:
+---------------
+1. TOKEN ISSUANCE:
+   - New money (investments, revenue) creates new tokens at current issuance price, which starts at 1 token per dollar.
+   - Tokens are distributed according to stage splits (e.g., 20% Team 1, 10% Team 2) - ALL split recipients receive their allocated tokens, with any remaining tokens in excess of the total split percent going to the payer of the money that generated the tokens.
+   - Issuance price increases over time according to a issuance cut percent and frequency.
+
+2. LOAN SYSTEM:
+   - Entities can borrow against their token holdings (limited by cash out value of tokens)
+   - Loans lock tokens as collateral until repayment
+   - Loan potential = cash out value of tokens assuming full treasury (including outstanding loaned amounts) and full token supply (including locked tokens being used as collateral for loans)
+   - 2.5% upfront internal fee (goes to treasury as revenue)
+   - 3.5% upfront external protocol fee (goes to external entities)
+   - Loan principal (loaned amount before upfront fees) can be paid back at any time to access collateral, and must include an additional 5% annual compounding interest after 6-month grace period
+
+3. CASH OUT SYSTEM:
+   - Token holders can cash out tokens for treasury value
+   - Uses bonding curve: value = (treasury * tokens / supply) * ((1-tax) + tokens*tax/supply), where supply doesn't include locked tokens being used as collateral for loans, and treasury doesn't include outstanding loaned amounts.
+   - cash out tax rate is set by the stage (reduces returned value)
+   - 5% external protocol fee on cash out amount
+
+4. FEE STRUCTURE:
+   - Internal Fees: Revenue to Revnet treasury (2.5% loan origination, interest on repayments)
+   - External Protocol Fees: External expenses (3.5% loan origination, 5% cash out)
+   - Internal fees generate tokens, external protocol fees don't (they leave the system)
+  --->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Revnet Calculator</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.js"></script>
+</head>
+<body>
+  <!-- HEADER AND MAIN LAYOUT -->
+  <div style="background: #f8f9fa; border-bottom: 1px solid #dee2e6; padding: 15px 0; margin-bottom: 20px; width: 100%;">
+    <div style="padding: 0 20px; max-width: 800px;">
+      <h1 style="margin: 0 0 10px 0; font-size: 1.8em; color: #333;">RevNet Calculator</h1>
+      <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.4;">
+        <strong>What is a RevNet?</strong> A financial protocol that allows entities to invest capital, receive tokens representing ownership, take loans against their token holdings, generate revenue through fees, and cash out tokens for underlying treasury value.
+      </p>
+      <p style="margin: 5px 0 0 0; font-size: 14px; color: #666; line-height: 1.4;">
+        <strong>How to use:</strong> Configure stages with token distribution splits, add events (investments, loans, repayments, cash outs), then click Calculate to run the simulation and view detailed charts.
+      </p>
+    </div>
+  </div>
+  <div class="mobile-toggle" onclick="UI.toggleView()">
+    <span id="toggle-text">Show Results</span>
+  </div>
+  <div class="container">
+    <div class="controls active">
+      <h2>Revnet Calculator</h2>
+      <div class="section-divider">
+        <h3>Stages</h3>
+        <p style="font-size: 11px; color: #666; margin: 5px 0;">Set a stage duration to automatically add the next stage</p>
+        <div id="stages"></div>
+      </div>
+      <div class="section-divider">
+        <h3>Events</h3>
+        <div id="events"></div>
+      </div>
+      <button class="small" id="add-event-btn" style="background: #28a745; color: white;">+ Add Event</button>
+      <div style="margin-top: 15px;">
+        <button class="small" id="export-btn" style="background: #17a2b8; color: white;">📤 Export</button>
+        <button class="small" id="import-btn" style="background: #fd7e14; color: white;">📥 Import</button>
+      </div>
+    </div>
+    <div class="results">
+      <div id="loading" class="loading">Loading...</div>
+      <div id="content" style="display: none;">
+        <div id="summary"></div>
+
+        <div class="chart-container">
+          <div class="chart-wrapper">
+            <h4>Token Distribution</h4>
+            <p style="font-size: 11px; color: #666; margin: 5px 0;">Shows how tokens are distributed between different splits and payers over time. Each line represents the token balance for that group.</p>
+            <canvas id="tokenChart"></canvas>
+          </div>
+          <div class="chart-wrapper">
+            <h4>Splits Loan Status</h4>
+            <p style="font-size: 11px; color: #666; margin: 5px 0;">Shows loan amounts and potential for stage splits (like Team) over time.</p>
+            <canvas id="teamLoanChart"></canvas>
+          </div>
+          <div class="chart-wrapper">
+            <h4>Investor Loan Status</h4>
+            <p style="font-size: 11px; color: #666; margin: 5px 0;">Shows loan amounts and potential for individual investors over time.</p>
+            <canvas id="investorLoanChart"></canvas>
+          </div>
+          <div class="chart-wrapper">
+            <h4>Loan Potential Comparison</h4>
+            <p style="font-size: 11px; color: #666; margin: 5px 0;">Compares maximum loan amounts each entity could take based on their token holdings.</p>
+            <canvas id="loanPotentialChart"></canvas>
+          </div>
+          <div class="chart-wrapper">
+            <h4>Outstanding Loans Comparison</h4>
+            <p style="font-size: 11px; color: #666; margin: 5px 0;">Shows current outstanding loan balances for each entity over time.</p>
+            <canvas id="outstandingLoansChart"></canvas>
+          </div>
+          <div class="chart-wrapper">
+            <h4>Revnet Treasury Backing</h4>
+            <p style="font-size: 11px; color: #666; margin: 5px 0;">Shows the total value backing the Revnet treasury over time.</p>
+            <canvas id="backingChart"></canvas>
+          </div>
+          <div class="chart-wrapper">
+            <h4>Token Issuance Price</h4>
+            <p style="font-size: 11px; color: #666; margin: 5px 0;">Shows the price for new token issuance based on stage cut rates and frequency.</p>
+            <canvas id="issuancePriceChart"></canvas>
+          </div>
+          <div class="chart-wrapper">
+            <h4>Token Cash Out Value</h4>
+            <p style="font-size: 11px; color: #666; margin: 5px 0;">Shows the value per token when cashing out, based on bonding curve and tax rates.</p>
+            <canvas id="cashOutValueChart"></canvas>
+          </div>
+          <div class="chart-wrapper">
+            <h4>Split Ownership %</h4>
+            <p style="font-size: 11px; color: #666; margin: 5px 0;">Shows the percentage ownership of total tokens for each entity over time.</p>
+            <canvas id="distributionChart"></canvas>
+          </div>
+          <div class="chart-wrapper">
+            <h4>Tokens Backing Loans %</h4>
+            <p style="font-size: 11px; color: #666; margin: 5px 0;">Shows the percentage of each entity's tokens that are locked as loan collateral.</p>
+            <canvas id="dilutionChart"></canvas>
+          </div>
+          <div class="chart-wrapper">
+            <h4>Cash Flows</h4>
+            <p style="font-size: 11px; color: #666; margin: 5px 0;">Shows money flowing in and out of the system from investments, revenue, loans, and cash outs.</p>
+            <canvas id="cashFlowChart"></canvas>
+          </div>
+          <div class="chart-wrapper">
+            <h4>Fee Flows</h4>
+            <p style="font-size: 11px; color: #666; margin: 5px 0;">Shows internal and protocol fees generated from loans and cash outs.</p>
+            <canvas id="cashFlowFeesChart"></canvas>
+          </div>
+          <div class="chart-wrapper">
+            <h4>Token Valuations</h4>
+            <p style="font-size: 11px; color: #666; margin: 5px 0;">Shows the total value of each entity's token holdings over time.</p>
+            <canvas id="tokenValuationChart"></canvas>
+          </div>
+          <div class="chart-wrapper">
+            <h4>Token Performance</h4>
+            <p style="font-size: 11px; color: #666; margin: 5px 0;">Shows the performance of each entity's token investments over time.</p>
+            <canvas id="tokenPerformanceChart"></canvas>
+          </div>
+
+        </div>
+        <div id="tableResults"></div>
+      </div>
+    </div>
+  </div>
+  <!-- Load all JavaScript files directly -->
+  <script src="js/utils.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/stageManager.js"></script>
+  <script src="js/eventManager.js"></script>
+  <script src="js/calculator.js"></script>
+  <script src="js/chartManager.js"></script>
+  <script src="js/resultsDisplay.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
