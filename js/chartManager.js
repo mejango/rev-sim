@@ -1759,6 +1759,24 @@ const ChartManager = {
         const cashOutValue = StateMachine.calculateCashOutValueForEvent(1, result.totalSupply, result.revnetBacking, stage.cashOutTax);
         const currentValue = totalTokens * cashOutValue;
         
+        // Calculate total amount cashed out by this entity UP TO THIS DAY ONLY
+        let totalCashedOut = 0;
+        State.calculationResults.forEach(dayResult => {
+          if (dayResult.day <= result.day) { // Only count cash outs up to current day
+            dayResult.events.forEach(event => {
+              if (Utils.normalizeLabel(event.label) === label && event.type.endsWith('-cashout')) {
+                // Calculate actual cash out amount in dollars
+                const eventStage = StageManager.getStageAtDay(dayResult.day);
+                if (eventStage) {
+                  const stateBefore = StateMachine.getStateAtDay(dayResult.day - 1);
+                  const cashOutAmount = StateMachine.calculateCashOutValueForEvent(event.amount, stateBefore.totalSupply, stateBefore.revnetBacking, eventStage.cashOutTax);
+                  totalCashedOut += cashOutAmount;
+                }
+              }
+            });
+          }
+        });
+        
         // Calculate invested amount from events UP TO THIS DAY ONLY
         let invested = 0;
         State.calculationResults.forEach(dayResult => {
@@ -1771,8 +1789,11 @@ const ChartManager = {
           }
         });
         
+        // Total value includes current token value + amount cashed out
+        const totalValue = currentValue + totalCashedOut;
+        
         if (invested > 0) {
-          return ((currentValue - invested) / invested) * 100;
+          return ((totalValue - invested) / invested) * 100;
         }
         return 0;
       });
