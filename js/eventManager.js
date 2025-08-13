@@ -24,6 +24,9 @@ const EventManager = {
   getDisplayNameForLabel(normalizedLabel) {
     // Get the proper display name for a normalized label
     
+    
+
+    
     // Check if it's a stage split (like "team")
     for (const stageId of State.stages) {
       const splitsContainer = document.getElementById(`stage-splits-${stageId}`);
@@ -34,6 +37,7 @@ const EventManager = {
           if (labelInput) {
             const originalLabel = labelInput.value.trim();
             if (Utils.normalizeLabel(originalLabel) === normalizedLabel) {
+        
               return originalLabel;
             }
           }
@@ -68,7 +72,9 @@ const EventManager = {
     // Default fallback - try to reconstruct from normalized label
     // Split by common patterns and capitalize each word
     const words = normalizedLabel.replace(/([A-Z])/g, ' $1').trim().split(/\s+/);
-    return words.map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    const reconstructed = words.map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    
+    return reconstructed;
   },
 
   // Add global event listener for input changes
@@ -247,8 +253,17 @@ const EventManager = {
           this.updateLoanPotential(id, tokenHolderSelect.value);
         } else if (eventType === 'payback-loan' && tokenHolderSelect.value) {
           // Update Initial State for repayment events too
-          this.updateLoanInitialState(id, tokenHolderSelect.value);
+          this.updatePaybackInitialState(id, tokenHolderSelect.value);
         }
+        
+        // Trigger auto-calculation to update state and charts
+        this.autoCalculate();
+        
+        // After auto-calculation, update all dropdowns to reflect the new state
+        setTimeout(() => {
+          this.updateAllDropdowns();
+          this.updateTokenHolderSelections(id);
+        }, 100);
       });
     }
   },
@@ -484,22 +499,31 @@ const EventManager = {
     const tokenHolderSelect = UI.$(`token-holder-${id}`);
     if (!tokenHolderSelect) return;
     
-    // Check if there's already a selected option in the HTML
-    const existingSelectedOption = tokenHolderSelect.querySelector('option[selected]');
-    const existingSelectedValue = existingSelectedOption ? existingSelectedOption.value : '';
     
-    // Clear existing options
-    tokenHolderSelect.innerHTML = '<option value="">Select token holder...</option>';
+
+    
+    // Store the current user selection before repopulating
+    const currentUserSelection = tokenHolderSelect.value;
+    
+    // Clear existing options completely
+    tokenHolderSelect.innerHTML = '';
+    const placeholderOption = document.createElement('option');
+    placeholderOption.value = '';
+    placeholderOption.textContent = 'Select token holder...';
+    tokenHolderSelect.appendChild(placeholderOption);
     
     const day = parseInt(UI.$(`event-day-${id}`).value) || 0;
+    
+    // Force a fresh state calculation by clearing any cached state
+    if (typeof StateMachine !== 'undefined' && StateMachine.getStateAtDay) {
+      // Force recalculation by calling with a fresh day calculation
+      const freshState = StateMachine.getStateAtDay(day - 1);
+    }
     
     // Get all available token holders with proper display names
     const availableTokenHolders = new Map(); // Use Map to avoid duplicates
     
-    // For default events, always include "Angel investor" for loan and payback events
-    if (eventType === 'loan' || eventType === 'payback-loan' || eventType === 'cashout') {
-      availableTokenHolders.set('angelinvestor', 'Angel investor');
-    }
+
     
     // Try to get state from StateMachine if it's available
     try {
@@ -521,43 +545,46 @@ const EventManager = {
         const state = StateMachine.getStateAtDay(day - 1);
         if (state && state.loanHistory) {
           Object.entries(state.loanHistory).forEach(([normalizedLabel, loans]) => {
-            const totalOutstanding = loans.reduce((sum, loan) => sum + loan.amount, 0);
-            if (totalOutstanding > 0) {
+            const totalRemainingTokens = loans.reduce((sum, loan) => sum + loan.remainingTokens, 0);
+            if (totalRemainingTokens > 0) {
               // Get the proper display name for this label
               let displayName = this.getDisplayNameForLabel(normalizedLabel);
               availableTokenHolders.set(normalizedLabel, displayName);
             }
           });
         }
+        
+
       }
     } catch (error) {
       // StateMachine not ready yet, use default options
     }
     
     // Add options to dropdown
-    Array.from(availableTokenHolders.entries()).sort().forEach(([normalizedLabel, displayName]) => {
+    const finalOptions = Array.from(availableTokenHolders.values());
+    
+    // Use the final options directly - no hard-coded filtering needed
+    let filteredOptions = finalOptions;
+    
+    // Add the filtered options to the dropdown
+    filteredOptions.forEach(displayName => {
       const option = document.createElement('option');
-      option.value = displayName; // Use display name as value
+      option.value = displayName;
       option.textContent = displayName;
       tokenHolderSelect.appendChild(option);
     });
     
     // Set the selected value based on priority:
-    // 1. Existing selected value (preserve current selection)
-    // 2. Angel investor for default events
-    // 3. First available option
-    const displayNames = Array.from(availableTokenHolders.values());
-    if (existingSelectedValue && displayNames.includes(existingSelectedValue)) {
-      tokenHolderSelect.value = existingSelectedValue;
-    } else if (existingSelectedValue === 'Angel investor' && displayNames.includes('Angel investor')) {
-      // Preserve Angel investor selection if it was already set
-      tokenHolderSelect.value = 'Angel investor';
-    } else if (displayNames.includes('Angel investor')) {
-      // For default events, auto-select Angel investor if available
-      tokenHolderSelect.value = 'Angel investor';
-    } else if (displayNames.length > 0) {
-      // If no token holder is selected but we have options, select the first one
-      tokenHolderSelect.value = displayNames[0];
+    // 1. Current user selection (preserve what user selected)
+    // 2. First available option if no user selection
+    if (currentUserSelection && filteredOptions.includes(currentUserSelection)) {
+      // Preserve the user's current selection
+      tokenHolderSelect.value = currentUserSelection;
+    } else if (filteredOptions.length > 0) {
+      // If no user selection but we have options, select the first one
+      tokenHolderSelect.value = filteredOptions[0];
+    } else {
+      tokenHolderSelect.value = '';
     }
     
     // Update the Initial State and Resulting State after setting the token holder
@@ -1469,20 +1496,10 @@ const EventManager = {
       // Handle simplified event types by converting to specific format
       const specificType = this.getSpecificEventType(type, id);
       if (specificType === null) {
-        // For default events, use a fallback token holder if none is selected
+        // Skip events without token holder selected - don't auto-select
         if (type === 'loan' || type === 'payback-loan' || type === 'cashout') {
           const tokenHolderElement = UI.$(`token-holder-${id}`);
-          if (tokenHolderElement && !tokenHolderElement.value) {
-            // Auto-select Angel investor for default events
-            tokenHolderElement.value = 'Angel investor';
-            // Re-try getting the specific type
-            const retryType = this.getSpecificEventType(type, id);
-            if (retryType) {
-              type = retryType;
-            } else {
-              return; // Still can't get specific type, skip event
-            }
-          } else {
+          if (!tokenHolderElement || !tokenHolderElement.value) {
             return; // No token holder selected, skip event
           }
         } else {
@@ -1582,6 +1599,10 @@ const EventManager = {
       const collateralizedTokens = StateMachine.getCollateralizedTokens(normalizedLabel, day - 1);
       const requestedTokens = amount * 1000000; // Convert M tokens to actual tokens
       
+      if (collateralizedTokens === 0) {
+        return `${tokenHolder} has no outstanding loans to repay.`;
+      }
+      
       if (requestedTokens > collateralizedTokens) {
         return `Cannot uncollateralize ${(requestedTokens / 1000000).toFixed(3)}M tokens. Only ${(collateralizedTokens / 1000000).toFixed(3)}M tokens collateralized.`;
       }
@@ -1617,6 +1638,60 @@ const EventManager = {
         errorDiv.style.display = 'none';
       }
     }
+  },
+
+  updateAllDropdowns() {
+    // Update all token holder dropdowns to reflect current state
+    State.events.forEach(eventId => {
+      const eventTypeElement = UI.$(`event-type-${eventId}`);
+      const eventType = eventTypeElement?.value;
+      if (eventType === 'loan' || eventType === 'payback-loan' || eventType === 'cashout') {
+        // Force a fresh state calculation for this specific event
+        this.populateTokenHolderDropdown(eventId, eventType);
+      }
+    });
+  },
+
+  updateTokenHolderSelections(changedEventId) {
+    // When an event's token holder changes, update other events that might be affected
+    State.events.forEach(eventId => {
+      if (eventId === changedEventId) return; // Skip the event that just changed
+      
+      const eventType = UI.$(`event-type-${eventId}`)?.value;
+      if (eventType === 'payback-loan') {
+        const tokenHolderSelect = UI.$(`token-holder-${eventId}`);
+        if (!tokenHolderSelect || !tokenHolderSelect.value) return;
+        
+        // Check if the currently selected token holder still has outstanding loans
+        const day = parseInt(UI.$(`event-day-${eventId}`).value) || 0;
+        const state = StateMachine.getStateAtDay(day - 1);
+        const normalizedLabel = Utils.normalizeLabel(tokenHolderSelect.value);
+        const collateralizedTokens = StateMachine.getCollateralizedTokens(normalizedLabel, day - 1);
+        
+        if (collateralizedTokens === 0) {
+          // The selected token holder no longer has outstanding loans
+          // Find a new valid token holder to select
+          const availableTokenHolders = [];
+          if (state && state.loanHistory) {
+            Object.entries(state.loanHistory).forEach(([label, loans]) => {
+              const totalRemainingTokens = loans.reduce((sum, loan) => sum + loan.remainingTokens, 0);
+              if (totalRemainingTokens > 0) {
+                const displayName = this.getDisplayNameForLabel(label);
+                availableTokenHolders.push(displayName);
+              }
+            });
+          }
+          
+          if (availableTokenHolders.length > 0) {
+            // Select the first available token holder
+            tokenHolderSelect.value = availableTokenHolders[0];
+          } else {
+            // No valid token holders available, clear the selection
+            tokenHolderSelect.value = '';
+          }
+        }
+      }
+    });
   },
 
   validateAllEvents() {

@@ -126,7 +126,7 @@ const ResultsDisplay = {
       tableHTML += `<td>${loans > 0 ? Utils.formatCurrency(loans) : ''}</td>`;
       tableHTML += `<td>${payBack > 0 ? Utils.formatCurrency(payBack) : ''}</td>`;
       tableHTML += `<td>${cashOut > 0 ? Utils.formatCurrency(cashOut) : ''}</td>`;
-      tableHTML += `<td title="${eventDescriptions.join('\n')}">${eventDescriptions.length} event(s)</td>`;
+      tableHTML += `<td>${eventDescriptions.join(', ')}</td>`;
       tableHTML += '</tr>';
     });
     

@@ -74,9 +74,11 @@ const App = {
     // Now set the values after the HTML is generated
     const event2DayInput = document.getElementById(`event-day-${event2Id}`);
     const event2AmountInput = document.getElementById(`event-amount-${event2Id}`);
+    const event2TokenHolderSelect = document.getElementById(`token-holder-${event2Id}`);
     
     if (event2DayInput) event2DayInput.value = '1';
     if (event2AmountInput) event2AmountInput.value = '1';
+    if (event2TokenHolderSelect) event2TokenHolderSelect.value = 'Angel investor';
     
     // Add Event 3: Pay Back Loan (partial - 0.5M tokens) - Day 280
     EventManager.addEvent();
@@ -91,9 +93,11 @@ const App = {
     // Now set the values after the HTML is generated
     const event3DayInput = document.getElementById(`event-day-${event3Id}`);
     const event3AmountInput = document.getElementById(`event-amount-${event3Id}`);
+    const event3TokenHolderSelect = document.getElementById(`token-holder-${event3Id}`);
     
     if (event3DayInput) event3DayInput.value = '280';
     if (event3AmountInput) event3AmountInput.value = '0.5';
+    if (event3TokenHolderSelect) event3TokenHolderSelect.value = 'Angel investor';
     
     // Add Event 4: Cash Out remaining tokens - Day 281
     EventManager.addEvent();
@@ -129,11 +133,9 @@ const App = {
         if (!tokenHolderSelect || !tokenHolderSelect.value) {
           EventManager.populateTokenHolderDropdown(eventId, eventType);
           
-          // Ensure Angel investor is selected for default events
-          if (tokenHolderSelect && !tokenHolderSelect.value) {
-            tokenHolderSelect.value = 'Angel investor';
-            
-            // Trigger the change event to update initial/resulting states
+          // Don't auto-select Angel investor - let user choose
+          // Only trigger change event if a value is already selected
+          if (tokenHolderSelect && tokenHolderSelect.value) {
             const changeEvent = new Event('change', { bubbles: true });
             tokenHolderSelect.dispatchEvent(changeEvent);
           }
