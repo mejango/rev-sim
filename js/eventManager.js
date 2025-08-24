@@ -207,21 +207,20 @@ const EventManager = {
     try {
       Calculator.calculate(true);
       
-      // Force chart recreation to ensure they show updated data
-      if (State.charts && Object.keys(State.charts).length > 0) {
-        Object.values(State.charts).forEach(chart => {
-          if (chart && typeof chart.destroy === 'function') {
-            chart.destroy();
-          }
-        });
-        State.charts = {};
+      // Only recreate charts if they don't exist or if calculation results changed
+      if (!State.charts || Object.keys(State.charts).length === 0) {
+        ChartManager.createAll();
+      } else {
+        // Update existing charts with new data
+        ChartManager.createAll();
       }
-      
-      ChartManager.createAll();
       
       // Update all event fields and resulting states
       this.batchUpdateEventFields();
       this.batchUpdateResultingStates();
+      
+      // Update the results display
+      ResultsDisplay.updateAll();
     } catch (error) {
       // Force recalculation error handled silently
     }
@@ -237,6 +236,7 @@ const EventManager = {
           clearTimeout(this.inputTimeout);
         }
         this.inputTimeout = setTimeout(() => {
+          this.checkScenarioChange();
           this.autoCalculate();
         }, 500); // 500ms delay after stopping typing
       });
@@ -257,6 +257,7 @@ const EventManager = {
         }
         
         // Trigger auto-calculation to update state and charts
+        this.checkScenarioChange();
         this.autoCalculate();
         
         // After auto-calculation, update all dropdowns to reflect the new state
@@ -272,6 +273,13 @@ const EventManager = {
     const eventType = UI.$(`event-type-${eventId}`)?.value;
     if (!eventType) return;
     
+    // Store the current amount before any changes
+    let currentAmount = UI.$(`event-amount-${eventId}`)?.value;
+    if (!currentAmount && State.eventData && State.eventData[eventId]) {
+      // If amount input doesn't exist yet, use the stored event data
+      currentAmount = State.eventData[eventId].amount;
+    }
+    
     const fieldsContainer = UI.$(`event-fields-${eventId}`);
     if (!fieldsContainer) return;
     
@@ -279,11 +287,27 @@ const EventManager = {
     fieldsContainer.innerHTML = '';
     
     if (eventType === 'investment' || eventType === 'revenue') {
+      // Hide token holder dropdown for investment and revenue events
+      const tokenHolderContainer = UI.$(`token-holder-container-${eventId}`);
+      if (tokenHolderContainer) {
+        tokenHolderContainer.style.display = 'none';
+      }
+      
       // Use StateMachine as single source of truth
       const day = parseInt(UI.$(`event-day-${eventId}`)?.value) || 0;
       const stateBeforeEvent = StateMachine.getStateAtDay(day - 1);
       const existingLabel = UI.$(`event-label-${eventId}`)?.value || (eventType === 'investment' ? 'Generic investor' : 'Generic Revenue');
-      const existingAmount = UI.$(`event-amount-${eventId}`)?.value || '1';
+      let existingAmount = UI.$(`event-amount-${eventId}`)?.value;
+      if (!existingAmount && State.eventData && State.eventData[eventId]) {
+        existingAmount = State.eventData[eventId].amount;
+      } else if (!existingAmount) {
+        existingAmount = '1';
+      }
+      
+
+      
+      // Store the current amount before recreating HTML
+      const currentAmount = existingAmount;
       
       const fieldsHTML = `
         <details style="border: 1px solid #ccc; margin: 8px 0 16px 0; background-color: #f0f8ff;">
@@ -291,14 +315,14 @@ const EventManager = {
           <div style="padding: 8px; font-family: monospace; font-size: 12px;">
             <table style="width: 100%;">
                     <tr><td>Revnet's balance</td><td><strong>${Utils.formatCurrency(stateBeforeEvent.revnetBacking)}</strong></td></tr>
-      <tr><td>${existingLabel} tokens</td><td><span id="current-entity-tokens-${eventId}"><strong>${((stateBeforeEvent.tokensByLabel[Utils.normalizeLabel(existingLabel)] || 0) / 1000000).toFixed(3)}M</strong></span></td></tr>
+      <tr><td>${existingLabel || 'Entity'} tokens</td><td><span id="current-entity-tokens-${eventId}"><strong>${((stateBeforeEvent.tokensByLabel[Utils.normalizeLabel(existingLabel || 'Entity')] || 0) / 1000000).toFixed(3)}M</strong></span></td></tr>
             </table>
           </div>
         </details>
         <label>Label (e.g., "Angel investor", "Series A")</label>
-        <input type="text" id="event-label-${eventId}" value="${existingLabel}" placeholder="Optional label for analytics tracking">
+        <input type="text" id="event-label-${eventId}" value="${existingLabel}" placeholder="${eventType === 'investment' ? 'Generic investor' : 'Generic Revenue'}">
         <label>Amount ($M)</label>
-        <input type="number" id="event-amount-${eventId}" value="${existingAmount}" min="0" step="0.1" placeholder="Enter amount in millions...">
+        <input type="number" id="event-amount-${eventId}" value="${currentAmount}" min="0" step="0.1" placeholder="Enter amount in millions..." onchange="EventManager.validateEventAmount(${eventId})">
         <div id="error-${eventId}" class="error-message" style="display: none;"></div>
         <details style="border: 1px solid #ccc; margin: 8px 0 8px 0; background-color: #f5f5f5;">
           <summary style="padding: 8px; cursor: pointer; font-weight: bold; font-family: monospace; font-size: 12px;">Resulting State</summary>
@@ -308,6 +332,12 @@ const EventManager = {
         </details>
       `;
       fieldsContainer.innerHTML = fieldsHTML;
+      
+      // Verify the amount was preserved after HTML recreation
+      const newAmountInput = UI.$(`event-amount-${eventId}`);
+      if (newAmountInput && newAmountInput.value !== currentAmount) {
+        newAmountInput.value = currentAmount;
+      }
       
       // Update resulting state
       if (eventType === 'investment') {
@@ -409,8 +439,11 @@ const EventManager = {
     });
   },
 
-  addEvent() {
+  addEvent(position = null) {
     const id = State.counters.event++;
+    
+    // Check if this changes the current scenario
+    this.checkScenarioChange();
     
     // Calculate the next day based on existing events
     let nextDay = 0;
@@ -446,6 +479,10 @@ const EventManager = {
         <div id="event-fields-${id}">
           <p style="color: #666; font-style: italic;">Select an event type above to configure this event</p>
         </div>
+        <div style="display: none;">
+          <label>Label (e.g., "Angel investor", "Series A")</label>
+          <input type="text" id="event-label-${id}" value="" placeholder="Enter label">
+        </div>
         <div class="event-visibility">
           <input type="checkbox" id="event-visible-${id}" checked onchange="EventManager.toggleEventVisibility(${id})">
           <label for="event-visible-${id}">Include in calculation</label>
@@ -453,7 +490,30 @@ const EventManager = {
       </div>
     `;
     
-    UI.$('events').appendChild(UI.createElement(eventHTML));
+    const eventElement = UI.createElement(eventHTML);
+    
+    if (position !== null) {
+      // Insert at specific position
+      const eventsContainer = UI.$('events');
+      const eventElements = eventsContainer.querySelectorAll('.event-card');
+      const addEventButtons = eventsContainer.querySelectorAll('.add-event-here');
+      
+      if (position === 0) {
+        // Insert at the beginning
+        eventsContainer.insertBefore(eventElement, eventsContainer.firstChild);
+      } else if (position <= eventElements.length) {
+        // Insert after the specified event
+        const targetElement = eventElements[position - 1];
+        eventsContainer.insertBefore(eventElement, targetElement.nextSibling);
+      } else {
+        // Append to the end
+        eventsContainer.appendChild(eventElement);
+      }
+    } else {
+      // Append to the end (default behavior)
+      UI.$('events').appendChild(eventElement);
+    }
+    
     State.events.push(id);
 
     
@@ -474,6 +534,9 @@ const EventManager = {
     
     // Add input event listeners for auto-calculation
     this.addInputEventListeners(id);
+    
+    // Update add event buttons after adding new event
+    this.updateAddEventButtons();
   },
 
   removeEvent(id) {
@@ -481,8 +544,14 @@ const EventManager = {
     State.events = State.events.filter(e => e !== id);
     this.sortEvents();
     
+    // Check if this changes the current scenario
+    this.checkScenarioChange();
+    
     // Auto-calculate after removing event
     setTimeout(() => this.autoCalculate(), 100);
+    
+    // Update add event buttons after removing event
+    this.updateAddEventButtons();
   },
 
   updateEvent(id) {
@@ -1448,6 +1517,12 @@ const EventManager = {
       const numberSpan = item.element.querySelector('.event-number');
       numberSpan.textContent = `Event ${index + 1}`;
     });
+    
+    // Validate event ordering after sorting
+    this.validateAllEventOrdering();
+    
+    // Update add event buttons after sorting
+    this.updateAddEventButtons();
   },
 
   toggleEventVisibility(id) {
@@ -1579,6 +1654,10 @@ const EventManager = {
     
     if (!eventType || amount <= 0) return null;
     
+    // Validate event ordering by day
+    const orderingError = this.validateEventOrdering(eventId, day);
+    if (orderingError) return orderingError;
+    
     // Get state before this event
     const stateBeforeEvent = StateMachine.getStateAtDay(day - 1);
     
@@ -1707,6 +1786,151 @@ const EventManager = {
     });
     
     return !hasErrors;
+  },
+
+  validateAllEventOrdering() {
+    // Get all events with their days
+    const allEvents = [];
+    State.events.forEach(id => {
+      const eventDay = parseInt(UI.$(`event-day-${id}`)?.value) || 0;
+      const eventType = UI.$(`event-type-${id}`)?.value;
+      if (eventType) { // Only include events that have a type selected
+        allEvents.push({ id, day: eventDay });
+      }
+    });
+    
+    // Check for out-of-order events
+    let hasOrderingErrors = false;
+    for (let i = 0; i < allEvents.length - 1; i++) {
+      if (allEvents[i].day > allEvents[i + 1].day) {
+        const error = `Events must be ordered by day. Event ${allEvents[i + 1].id} (day ${allEvents[i + 1].day}) comes before Event ${allEvents[i].id} (day ${allEvents[i].day}).`;
+        this.showEventError(allEvents[i + 1].id, error);
+        hasOrderingErrors = true;
+      }
+    }
+    
+    // Clear errors for events that are now in order
+    if (!hasOrderingErrors) {
+      State.events.forEach(eventId => {
+        const errorDiv = UI.$(`error-${eventId}`);
+        if (errorDiv && errorDiv.textContent.includes('ordered by day')) {
+          errorDiv.style.display = 'none';
+        }
+      });
+    }
+    
+    return !hasOrderingErrors;
+  },
+
+  updateAddEventButtons() {
+    const eventsContainer = UI.$('events');
+    if (!eventsContainer) return;
+    
+    // Remove existing add event buttons
+    const existingButtons = eventsContainer.querySelectorAll('.add-event-here');
+    existingButtons.forEach(button => button.remove());
+    
+    // Get all event cards
+    const eventCards = eventsContainer.querySelectorAll('.event-card');
+    
+    // Add buttons between events
+    eventCards.forEach((eventCard, index) => {
+      const addButton = document.createElement('button');
+      addButton.className = 'add-event-here';
+      addButton.textContent = 'Add event';
+      addButton.onclick = () => this.addEvent(index + 1);
+      
+      // Insert button after this event card
+      eventCard.parentNode.insertBefore(addButton, eventCard.nextSibling);
+    });
+    
+    // Add button at the beginning if there are events
+    if (eventCards.length > 0) {
+      const addButtonFirst = document.createElement('button');
+      addButtonFirst.className = 'add-event-here';
+      addButtonFirst.textContent = 'Add event';
+      addButtonFirst.onclick = () => this.addEvent(0);
+      
+      // Insert button before the first event card
+      eventsContainer.insertBefore(addButtonFirst, eventCards[0]);
+    }
+  },
+
+  checkScenarioChange() {
+    // Check if current events match any predefined scenario
+    const currentEvents = this.getAllEvents().allEvents;
+    const currentScenario = window.ScenarioManager ? window.ScenarioManager.currentScenario : null;
+    
+    if (!currentScenario) return;
+    
+    const scenarioEvents = window.ScenarioManager.scenarios[currentScenario].events;
+    
+    // Compare events
+    if (currentEvents.length !== scenarioEvents.length) {
+      this.markScenarioChanged();
+      return;
+    }
+    
+    for (let i = 0; i < currentEvents.length; i++) {
+      const current = currentEvents[i];
+      const scenario = scenarioEvents[i];
+      
+      if (current.day !== scenario.day || 
+          current.type !== scenario.type || 
+          Math.abs(current.amount - scenario.amount * 1000000) > 1 || 
+          current.label !== scenario.label) {
+        this.markScenarioChanged();
+        return;
+      }
+    }
+  },
+
+  markScenarioChanged() {
+    if (window.ScenarioManager) {
+      window.ScenarioManager.currentScenario = null;
+      window.ScenarioManager.updateSelectedIndicator();
+      window.ScenarioManager.showSaveButton();
+    }
+  },
+
+  validateEventOrdering(eventId, day) {
+    // Get all events and their days
+    const allEvents = [];
+    State.events.forEach(id => {
+      if (id !== eventId) { // Exclude the current event being validated
+        const eventDay = parseInt(UI.$(`event-day-${id}`)?.value) || 0;
+        const eventType = UI.$(`event-type-${id}`)?.value;
+        if (eventType) { // Only include events that have a type selected
+          allEvents.push({ id, day: eventDay });
+        }
+      }
+    });
+    
+    // Add the current event
+    allEvents.push({ id: eventId, day: day });
+    
+    // Sort by day
+    allEvents.sort((a, b) => a.day - b.day);
+    
+    // Check if the current event is in the correct position
+    const currentEventIndex = allEvents.findIndex(e => e.id === eventId);
+    const expectedIndex = allEvents.filter(e => e.day <= day).length - 1;
+    
+    if (currentEventIndex !== expectedIndex) {
+      // Find the events that are out of order
+      const outOfOrderEvents = [];
+      for (let i = 0; i < allEvents.length - 1; i++) {
+        if (allEvents[i].day > allEvents[i + 1].day) {
+          outOfOrderEvents.push(allEvents[i + 1].id);
+        }
+      }
+      
+      if (outOfOrderEvents.length > 0) {
+        return `Events must be ordered by day. Event ${eventId} (day ${day}) is out of order. Please reorder events by day.`;
+      }
+    }
+    
+    return null; // No error
   }
 };
 

@@ -39,16 +39,23 @@ const StateMachine = {
     eventsUpToDay.forEach(event => {
       if (event.type === 'investment' || event.type === 'revenue') {
         revnetBacking += event.amount;
-        const issuancePrice = totalSupply > 0 ? revnetBacking / totalSupply : 1;
+        
+        // Use stage-based issuance price calculation, not bonding curve
+        const currentStage = typeof StageManager !== 'undefined' ? StageManager.getStageAtDay(event.day) : null;
+        let issuancePrice = 1.0;
+        if (currentStage && currentStage.hasCuts) {
+          const numCuts = Math.floor(event.day / currentStage.cutPeriod);
+          issuancePrice = Math.pow(1 + currentStage.issuanceCut, numCuts);
+        }
+        
         const tokensPerDollar = 1 / issuancePrice;
         const newTokens = event.amount * tokensPerDollar;
         totalSupply += newTokens;
         
         // Distribute tokens according to stage splits
-        const stage = typeof StageManager !== 'undefined' ? StageManager.getStageAtDay(event.day) : null;
-        if (stage) {
+        if (currentStage) {
           // Distribute tokens to all split recipients
-          Object.entries(stage.splits).forEach(([label, splitPercent]) => {
+          Object.entries(currentStage.splits).forEach(([label, splitPercent]) => {
             const entityTokens = Math.round(newTokens * splitPercent);
             const normalizedLabel = Utils.normalizeLabel(label);
             if (!tokensByLabel[normalizedLabel]) {
@@ -58,7 +65,7 @@ const StateMachine = {
           });
           
           // Give remaining tokens to the payer (investor)
-          const totalSplitPercent = Object.values(stage.splits).reduce((sum, percent) => sum + percent, 0);
+          const totalSplitPercent = Object.values(currentStage.splits).reduce((sum, percent) => sum + percent, 0);
           const remainingTokens = Math.round(newTokens * (1 - totalSplitPercent));
           if (remainingTokens > 0 && event.label) {
             const normalizedPayerLabel = Utils.normalizeLabel(event.label);
@@ -73,6 +80,7 @@ const StateMachine = {
         const stage = typeof StageManager !== 'undefined' ? StageManager.getStageAtDay(event.day) : null;
         if (stage) {
           const cashOutValue = this.calculateCashOutValueForEvent(tokensToCash, totalSupply, revnetBacking, stage.cashOutTax);
+
           revnetBacking -= cashOutValue;
           totalSupply -= tokensToCash;
           
@@ -108,6 +116,7 @@ const StateMachine = {
         const internalFee = loanAmount * 0.025; // 2.5% internal fee
         
         // Loans reduce Revnet balance by loan amount, but internal fee goes to Revnet
+        // External fee leaves the system (doesn't affect treasury)
         revnetBacking = revnetBacking - loanAmount + internalFee;
         
         // Track loan in history
@@ -167,7 +176,12 @@ const StateMachine = {
             
             // Issue new tokens from internal fees (same logic as loan events)
             if (internalFees > 0) {
-              const issuancePrice = totalSupply > 0 ? revnetBacking / totalSupply : 1;
+              // Use stage-based issuance price calculation, not bonding curve
+              let issuancePrice = 1.0;
+              if (stage && stage.hasCuts) {
+                const numCuts = Math.floor(event.day / stage.cutPeriod);
+                issuancePrice = Math.pow(1 + stage.issuanceCut, numCuts);
+              }
               const tokensPerDollar = 1 / issuancePrice;
               const tokensFromFees = Math.round(internalFees * tokensPerDollar);
               
@@ -196,8 +210,6 @@ const StateMachine = {
         }
       }
     });
-    
-    
     
     return {
       totalSupply,
@@ -278,8 +290,8 @@ const StateMachine = {
     }, 0);
     const fullTokenSupply = state.totalSupply + totalLockedTokens;
     
-    const loanPotential = (fullTreasury * availableTokens / fullTokenSupply) * 
-           ((1 - stage.cashOutTax) + (availableTokens * stage.cashOutTax / fullTokenSupply));
+    // Use the same bonding curve formula as cash out calculation
+    const loanPotential = this.calculateCashOutValueForEvent(availableTokens, fullTokenSupply, fullTreasury, stage.cashOutTax);
     
 
     

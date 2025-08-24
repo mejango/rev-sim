@@ -1,5 +1,15 @@
 // Chart management for Revnet Calculator
 const ChartManager = {
+  // Common chart options to disable animations
+  getChartOptions() {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+        duration: 0
+      }
+    };
+  },
   // Helper function to generate comprehensive tooltip context
   generateTooltipContext(day, chartType = 'general') {
     const dayData = State.calculationResults.find(r => r.day === day);
@@ -12,14 +22,24 @@ const ChartManager = {
     dayData.events.forEach(event => {
       switch (event.type) {
         case 'investment':
-          contextInfo.push(`• Investment of ${Utils.formatCurrency(event.amount)} created new tokens`);
-          contextInfo.push(`• Tokens distributed to splits and ${event.label}`);
-          contextInfo.push(`• Treasury backing increased by ${Utils.formatCurrency(event.amount)}`);
+          if (chartType === 'distribution') {
+            contextInfo.push(`• Investment of ${Utils.formatCurrency(event.amount)} created new tokens`);
+            contextInfo.push(`• Tokens distributed to splits and ${event.label}`);
+          } else {
+            contextInfo.push(`• Investment of ${Utils.formatCurrency(event.amount)} created new tokens`);
+            contextInfo.push(`• Tokens distributed to splits and ${event.label}`);
+            contextInfo.push(`• Treasury backing increased by ${Utils.formatCurrency(event.amount)}`);
+          }
           break;
         case 'revenue':
-          contextInfo.push(`• Revenue of ${Utils.formatCurrency(event.amount)} created new tokens`);
-          contextInfo.push(`• Tokens distributed to splits and ${event.label}`);
-          contextInfo.push(`• Treasury backing increased by ${Utils.formatCurrency(event.amount)}`);
+          if (chartType === 'distribution') {
+            contextInfo.push(`• Revenue of ${Utils.formatCurrency(event.amount)} created new tokens`);
+            contextInfo.push(`• Tokens distributed to splits and ${event.label}`);
+          } else {
+            contextInfo.push(`• Revenue of ${Utils.formatCurrency(event.amount)} created new tokens`);
+            contextInfo.push(`• Tokens distributed to splits and ${event.label}`);
+            contextInfo.push(`• Treasury backing increased by ${Utils.formatCurrency(event.amount)}`);
+          }
           break;
         case 'loan':
         case 'angelinvestor-loan':
@@ -65,7 +85,7 @@ const ChartManager = {
             cashOutAmount = StateMachine.calculateCashOutValueForEvent(event.amount, stateBefore.totalSupply, stateBefore.revnetBacking, cashOutStage.cashOutTax);
           }
           const externalFee = cashOutAmount * 0.05;
-          contextInfo.push(`• ${event.label} cashed out ${Utils.formatCurrency(event.amount)} tokens`);
+          contextInfo.push(`• ${event.label} cashed out ${event.amount.toLocaleString()} tokens`);
           contextInfo.push(`• Received ${Utils.formatCurrency(cashOutAmount)} from treasury`);
           contextInfo.push(`• External fee of ${Utils.formatCurrency(externalFee)} paid to protocol`);
           contextInfo.push(`• Tokens burned from supply`);
@@ -82,26 +102,53 @@ const ChartManager = {
       return;
     }
     
-    this.createTokenChart();
-    this.createTeamLoanChart();
-    this.createInvestorLoanChart();
-    this.createLoanPotentialChart();
-    this.createOutstandingLoansChart();
-    this.createBackingChart();
-    this.createIssuancePriceChart();
-    this.createCashOutValueChart();
-    this.createDistributionChart();
-    this.createDilutionChart();
     this.createCashFlowChart();
-    this.createCashFlowFeesChart();
+    this.createTokenChart();
     this.createTokenValuationChart();
+    this.createBackingChart();
+    this.createCashOutValueChart();
+    this.createLoanPotentialChart();
+    this.createDistributionChart();
     this.createTokenPerformanceChart();
+    this.createIssuancePriceChart();
+    this.createTeamLoanChart();
+    this.createOutstandingLoansChart();
+    this.createDilutionChart();
+    this.createCashFlowFeesChart();
 
   },
 
   updateAll() {
     // Force complete chart recreation to ensure all charts reflect updated data
     this.createAll();
+  },
+
+  forceRefreshDistributionChart() {
+    // Force a complete refresh of the distribution chart
+    
+    // Destroy any existing chart
+    if (State.charts.distributionChart) {
+      State.charts.distributionChart.destroy();
+      State.charts.distributionChart = null;
+    }
+    
+    // Clear any other chart references that might interfere
+    if (State.charts.distribution) {
+      State.charts.distribution.destroy();
+      State.charts.distribution = null;
+    }
+    
+    // Force garbage collection hint
+    if (window.gc) window.gc();
+    
+    // Clear the canvas completely
+    const ctx = document.getElementById('distributionChart');
+    if (ctx) {
+      const context = ctx.getContext('2d');
+      context.clearRect(0, 0, ctx.width, ctx.height);
+    }
+    
+    this.createDistributionChart();
   },
 
   createTokenChart() {
@@ -118,12 +165,13 @@ const ChartManager = {
       type: 'line',
       data: data,
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        ...this.getChartOptions(),
         plugins: {
           tooltip: {
             callbacks: {
-              label: Utils.formatTooltipLabel,
+              label: function(context) {
+                return context.dataset.label + ': ' + context.parsed.y.toLocaleString() + ' tokens';
+              },
               afterBody: function(context) {
                 const day = parseInt(context[0].label);
                 return ChartManager.generateTooltipContext(day, 'token');
@@ -141,11 +189,15 @@ const ChartManager = {
           },
           y: {
             beginAtZero: true,
-            ticks: {
-              callback: function(value) {
-                return Utils.formatCurrency(value);
+                          ticks: {
+                callback: function(value) {
+                  return value.toLocaleString() + ' tokens';
+                },
+                font: {
+                  size: 12
+                },
+                color: '#333'
               }
-            }
           }
         }
       }
@@ -160,21 +212,24 @@ const ChartManager = {
       State.charts.teamLoanChart.destroy();
     }
     
-    const data = this.prepareTeamLoanChartData();
+    const data = this.prepareCombinedLoanChartData();
     
     State.charts.teamLoanChart = new Chart(ctx, {
       type: 'line',
       data: data,
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        ...this.getChartOptions(),
         plugins: {
+          title: {
+            display: true,
+            text: 'Loan Status'
+          },
           tooltip: {
             callbacks: {
               label: Utils.formatTooltipLabel,
               afterBody: function(context) {
                 const day = parseInt(context[0].label);
-                return ChartManager.generateTooltipContext(day, 'team-loan');
+                return ChartManager.generateTooltipContext(day, 'loan-status');
               }
             }
           }
@@ -193,46 +248,7 @@ const ChartManager = {
     });
   },
 
-  createInvestorLoanChart() {
-    const ctx = document.getElementById('investorLoanChart');
-    if (!ctx) return;
-    
-    if (State.charts.investorLoanChart) {
-      State.charts.investorLoanChart.destroy();
-    }
-    
-    const data = this.prepareInvestorLoanChartData();
-    
-    State.charts.investorLoanChart = new Chart(ctx, {
-      type: 'line',
-      data: data,
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          tooltip: {
-            callbacks: {
-              label: Utils.formatTooltipLabel,
-              afterBody: function(context) {
-                const day = parseInt(context[0].label);
-                return ChartManager.generateTooltipContext(day, 'investor-loan');
-              }
-            }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: function(value) {
-                return Utils.formatCurrency(value);
-              }
-            }
-          }
-        }
-      }
-    });
-  },
+
 
   createLoanPotentialChart() {
     const ctx = document.getElementById('loanPotentialChart');
@@ -248,8 +264,7 @@ const ChartManager = {
       type: 'line',
       data: data,
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        ...this.getChartOptions(),
         plugins: {
           tooltip: {
             callbacks: {
@@ -289,8 +304,7 @@ const ChartManager = {
       type: 'line',
       data: data,
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        ...this.getChartOptions(),
         plugins: {
           tooltip: {
             callbacks: {
@@ -330,8 +344,7 @@ const ChartManager = {
       type: 'line',
       data: data,
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        ...this.getChartOptions(),
         plugins: {
           tooltip: {
             callbacks: {
@@ -371,8 +384,7 @@ const ChartManager = {
       type: 'line',
       data: data,
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        ...this.getChartOptions(),
         plugins: {
           tooltip: {
             callbacks: {
@@ -414,8 +426,7 @@ const ChartManager = {
       type: 'line',
       data: data,
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        ...this.getChartOptions(),
         plugins: {
           tooltip: {
             callbacks: {
@@ -447,18 +458,30 @@ const ChartManager = {
     const ctx = document.getElementById('distributionChart');
     if (!ctx) return;
     
+    // Destroy existing chart if it exists
     if (State.charts.distributionChart) {
       State.charts.distributionChart.destroy();
     }
     
     const data = this.prepareDistributionChartData();
     
+    // Ensure data is valid percentages
+    data.datasets.forEach(dataset => {
+      dataset.data = dataset.data.map(value => {
+        if (typeof value === 'number' && !isNaN(value)) {
+          return Math.max(0, Math.min(100, value)); // Ensure percentage is between 0-100
+        }
+        return value;
+      });
+    });
+    
+
+    // Create chart with simple token formatting
     State.charts.distributionChart = new Chart(ctx, {
       type: 'line',
       data: data,
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        ...this.getChartOptions(),
         plugins: {
           tooltip: {
             callbacks: {
@@ -473,18 +496,35 @@ const ChartManager = {
           }
         },
         scales: {
+          x: {
+            type: 'linear',
+            position: 'bottom',
+            min: 0,
+            max: Math.max(...State.calculationResults.map(r => r.day)),
+            title: {
+              display: true,
+              text: 'Day'
+            }
+          },
           y: {
+            type: 'linear',
             beginAtZero: true,
-            max: 100,
+            position: 'left',
             ticks: {
               callback: function(value) {
                 return value.toFixed(1) + '%';
               }
+            },
+            title: {
+              display: true,
+              text: 'Ownership %'
             }
           }
         }
       }
     });
+    
+
   },
 
   createDilutionChart() {
@@ -501,8 +541,7 @@ const ChartManager = {
       type: 'line',
       data: data,
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        ...this.getChartOptions(),
         plugins: {
           tooltip: {
             callbacks: {
@@ -548,10 +587,19 @@ const ChartManager = {
         datasets: data.datasets
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        ...this.getChartOptions(),
         plugins: {
           tooltip: {
+            mode: 'index',
+            intersect: false,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            titleColor: 'white',
+            bodyColor: 'white',
+            borderColor: 'rgba(255, 255, 255, 0.2)',
+            borderWidth: 1,
+            cornerRadius: 4,
+            displayColors: true,
+            padding: 10,
             callbacks: {
               title: function(context) {
                 return `Day ${context[0].label}`;
@@ -573,14 +621,16 @@ const ChartManager = {
                   `Revenue: ${Utils.formatCurrency(dayData.revenue)}`,
                   `Internal Fees: ${Utils.formatCurrency(dayData.internalFees)}`,
                   `Protocol Fees: ${Utils.formatCurrency(dayData.externalFees)}`,
-                  `Day 1 Investors Loan Pay back: ${Utils.formatCurrency(dayData.loans + dayData.loanRepayments)}`,
+                  `Loans: ${Utils.formatCurrency(dayData.loans)}`,
+                  `Loan Repayments: ${Utils.formatCurrency(dayData.loanRepayments)}`,
+                  `Cash Outs: ${Utils.formatCurrency(dayData.cashOuts)}`,
                   `Total Flow: ${Utils.formatCurrency(dayData.totalFlow)}`
                 ];
                 
                 // Add context based on events
                 const contextInfo = ChartManager.generateTooltipContext(day, 'cash-flow');
                 
-                return '\n' + breakdown.join('\n') + contextInfo;
+                return '\n' + breakdown.join('\n') + '\n' + contextInfo;
               }
             }
           }
@@ -612,8 +662,7 @@ const ChartManager = {
       type: 'bar',
       data: data,
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        ...this.getChartOptions(),
         plugins: {
           tooltip: {
             callbacks: {
@@ -646,37 +695,60 @@ const ChartManager = {
       State.charts.tokenValuationChart.destroy();
     }
     
-    const data = this.prepareTokenValuationChartData();
-    
-    State.charts.tokenValuationChart = new Chart(ctx, {
+    try {
+      const data = this.prepareTokenValuationChartData();
+      
+      if (!data || !data.datasets) {
+        console.warn('No data available for Token Valuations chart');
+        return;
+      }
+      
+      if (data.datasets.length === 0) {
+        console.warn('Token Valuations chart has no datasets');
+        return;
+      }
+      
+      // Check if datasets have valid data - but be less aggressive
+      const hasValidData = data.datasets.some(dataset => 
+        dataset.data && dataset.data.length > 0
+      );
+      
+      if (!hasValidData) {
+        console.warn('Token Valuations chart has no datasets with data');
+        return;
+      }
+      
+                State.charts.tokenValuationChart = new Chart(ctx, {
       type: 'line',
       data: data,
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          tooltip: {
-            callbacks: {
-              label: Utils.formatTooltipLabel,
-              afterBody: function(context) {
-                const day = parseInt(context[0].label);
-                return ChartManager.generateTooltipContext(day, 'token-valuation');
+        ...this.getChartOptions(),
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: Utils.formatTooltipLabel,
+                afterBody: function(context) {
+                  const day = parseInt(context[0].label);
+                  return ChartManager.generateTooltipContext(day, 'token-valuation');
+                }
               }
             }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: function(value) {
-                return Utils.formatCurrency(value);
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: function(value) {
+                  return Utils.formatCurrency(value);
+                }
               }
             }
           }
         }
-      }
-    });
+      });
+    } catch (error) {
+      console.error('Error creating Token Valuations chart:', error);
+    }
   },
 
   createTokenPerformanceChart() {
@@ -687,14 +759,24 @@ const ChartManager = {
       State.charts.tokenPerformanceChart.destroy();
     }
     
-    const data = this.prepareTokenPerformanceChartData();
-    
-    State.charts.tokenPerformanceChart = new Chart(ctx, {
+    try {
+      const data = this.prepareTokenPerformanceChartData();
+      
+      if (!data || !data.datasets) {
+        console.warn('No data available for Token Performance chart');
+        return;
+      }
+      
+      if (data.datasets.length === 0) {
+        console.warn('Token Performance chart has no datasets');
+        return;
+      }
+      
+      State.charts.tokenPerformanceChart = new Chart(ctx, {
       type: 'line',
       data: data,
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        ...this.getChartOptions(),
         plugins: {
           tooltip: {
             callbacks: {
@@ -719,6 +801,9 @@ const ChartManager = {
         }
       }
     });
+    } catch (error) {
+      console.error('Error creating Token Performance chart:', error);
+    }
   },
 
 
@@ -760,7 +845,7 @@ const ChartManager = {
     });
     
     // Add extended timeline points (300, 330, 360, 370) if we have events that go that far
-    const extendedDays = [300, 330, 360, 370];
+    const extendedDays = [300, 330, 360, 390, 420, 450, 480, 510];
     extendedDays.forEach(day => {
       if (day <= maxEventDay + 90 && !labels.includes(day)) {
         labels.push(day);
@@ -878,63 +963,47 @@ const ChartManager = {
     return { labels, datasets };
   },
 
-  prepareTeamLoanChartData() {
-    if (!State.calculationResults || State.calculationResults.length === 0) {
-      return { labels: [], datasets: [] };
-    }
-
-    const labels = this.createEventDrivenLabels();
-    const teamLoans = labels.map(day => {
-      let result = State.calculationResults.find(r => r.day === day);
-      if (!result) {
-        // Find the last available result before this day
-        const lastResult = State.calculationResults
-          .filter(r => r.day < day)
-          .sort((a, b) => b.day - a.day)[0];
-        if (lastResult) {
-          result = lastResult;
-        } else {
-          return 0;
-        }
-      }
-      const teamLoanHistory = result.loanHistory['team'] || [];
-      return teamLoanHistory.reduce((sum, loan) => sum + loan.amount, 0);
-    });
-
-    return {
-      labels,
-      datasets: [{
-        label: 'Team Loans',
-        data: teamLoans,
-        borderColor: 'rgb(54, 162, 235)',
-        backgroundColor: 'rgba(54, 162, 235, 0.2)',
-        tension: 0.1
-      }]
-    };
-  },
-
-  prepareInvestorLoanChartData() {
+  prepareCombinedLoanChartData() {
     if (!State.calculationResults || State.calculationResults.length === 0) {
       return { labels: [], datasets: [] };
     }
 
     const labels = this.createEventDrivenLabels();
     
-    // Get all unique investor labels from dayLabeledInvestorLoans
-    const allInvestorLabels = new Set();
+    // Get all unique token holder labels from loan history
+    const allTokenHolderLabels = new Set();
     State.calculationResults.forEach(result => {
-      Object.keys(result.dayLabeledInvestorLoans || {}).forEach(label => allInvestorLabels.add(label));
+      Object.keys(result.loanHistory || {}).forEach(label => allTokenHolderLabels.add(label));
     });
+
+    // If no token holders have loans, create a default "No Loans" dataset
+    if (allTokenHolderLabels.size === 0) {
+      const zeroData = labels.map(() => 0);
+      return {
+        labels,
+        datasets: [{
+          label: 'No Loans',
+          data: zeroData,
+          borderColor: 'rgb(201, 203, 207)',
+          backgroundColor: 'rgba(201, 203, 207, 0.2)',
+          tension: 0.1
+        }]
+      };
+    }
 
     const datasets = [];
     const colors = [
-      'rgb(255, 99, 132)', 'rgb(54, 162, 235)', 'rgb(255, 159, 64)',
-      'rgb(153, 102, 255)', 'rgb(255, 205, 86)', 'rgb(201, 203, 207)'
+      'rgb(54, 162, 235)',   // Blue for Team
+      'rgb(255, 99, 132)',   // Red for investors
+      'rgb(255, 159, 64)',   // Orange
+      'rgb(153, 102, 255)',  // Purple
+      'rgb(255, 205, 86)',   // Yellow
+      'rgb(201, 203, 207)'   // Gray
     ];
     
     let colorIndex = 0;
-    allInvestorLabels.forEach(label => {
-      const investorLoans = labels.map(day => {
+    allTokenHolderLabels.forEach(label => {
+      const tokenHolderLoans = labels.map(day => {
         let result = State.calculationResults.find(r => r.day === day);
         if (!result) {
           // Find the last available result before this day
@@ -957,8 +1026,6 @@ const ChartManager = {
           return sum;
         }, 0);
         
-
-        
         return total;
       });
       
@@ -974,7 +1041,7 @@ const ChartManager = {
       
       datasets.push({
         label: `${displayName} Loans`,
-        data: investorLoans,
+        data: tokenHolderLoans,
         borderColor: colors[colorIndex % colors.length],
         backgroundColor: colors[colorIndex % colors.length].replace('rgb', 'rgba').replace(')', ', 0.2)'),
         tension: 0.1
@@ -984,6 +1051,8 @@ const ChartManager = {
 
     return { labels, datasets };
   },
+
+
 
   prepareLoanPotentialChartData() {
     if (!State.calculationResults || State.calculationResults.length === 0) {
@@ -1074,6 +1143,21 @@ const ChartManager = {
     State.calculationResults.forEach(result => {
       Object.keys(result.dayLabeledInvestorLoans).forEach(label => allLabels.add(label));
     });
+
+    // If no entities have outstanding loans, create a default "No Loans" dataset
+    if (allLabels.size === 0) {
+      const zeroData = labels.map(() => 0);
+      return {
+        labels,
+        datasets: [{
+          label: 'No Outstanding Loans',
+          data: zeroData,
+          borderColor: 'rgb(201, 203, 207)',
+          backgroundColor: 'rgba(201, 203, 207, 0.2)',
+          tension: 0.1
+        }]
+      };
+    }
 
     const datasets = [];
     const colors = [
@@ -1241,6 +1325,7 @@ const ChartManager = {
       return { labels: [], datasets: [] };
     };
 
+
     const labels = this.createEventDrivenLabels();
     
     // Get all unique labels for ownership distribution
@@ -1248,6 +1333,8 @@ const ChartManager = {
     State.calculationResults.forEach(result => {
       Object.keys(result.tokensByLabel).forEach(label => allLabels.add(label));
     });
+    
+
 
     const datasets = [];
     const colors = [
@@ -1257,10 +1344,43 @@ const ChartManager = {
     
     let colorIndex = 0;
     allLabels.forEach(label => {
-      // Calculate ownership percentage for each label
-      const ownershipData = State.calculationResults.map(result => {
+            // Calculate ownership percentage for each label
+      const ownershipData = labels.map(day => {
+        let result = State.calculationResults.find(r => r.day === day);
+        if (!result) {
+          // Find the last available result before this day
+          const lastResult = State.calculationResults
+            .filter(r => r.day < day)
+            .sort((a, b) => b.day - a.day)[0];
+          if (lastResult) {
+            result = lastResult;
+          } else {
+            // If no result found, find the first available result
+            const firstResult = State.calculationResults
+              .filter(r => r.day >= day)
+              .sort((a, b) => a.day - b.day)[0];
+            if (firstResult) {
+              result = firstResult;
+            } else {
+              // If still no result, use the very last available result
+              const veryLastResult = State.calculationResults
+                .sort((a, b) => b.day - a.day)[0];
+              if (veryLastResult) {
+                result = veryLastResult;
+              } else {
+                return 0;
+              }
+            }
+          }
+        }
+        
         const totalTokens = result.tokensByLabel[label] || 0;
-        return result.totalSupply > 0 ? (totalTokens / result.totalSupply) * 100 : 0;
+        const totalSupply = result.totalSupply || 1; // Avoid division by zero
+        
+        // Calculate ownership percentage
+        const ownershipPercentage = totalSupply > 0 ? (totalTokens / totalSupply) * 100 : 0;
+        
+        return ownershipPercentage;
       });
       
       // Get the original display name for this label
@@ -1290,8 +1410,9 @@ const ChartManager = {
         });
       });
       
+
       datasets.push({
-        label: `${displayName} %`,
+        label: `${displayName}`,
         data: ownershipData,
         borderColor: colors[colorIndex % colors.length],
         backgroundColor: colors[colorIndex % colors.length].replace('rgb', 'rgba').replace(')', ', 0.2)'),
@@ -1492,10 +1613,24 @@ const ChartManager = {
           stack: 'Stack 0'
         },
         {
-          label: 'Day 1 Investors Loan Pay back',
-          data: cashFlowData.map(d => d.loans + d.loanRepayments),
+          label: 'Loans',
+          data: cashFlowData.map(d => d.loans),
+          borderColor: 'rgb(255, 99, 132)',
+          backgroundColor: 'rgba(255, 99, 132, 0.8)',
+          stack: 'Stack 0'
+        },
+        {
+          label: 'Loan Repayments',
+          data: cashFlowData.map(d => d.loanRepayments),
           borderColor: 'rgb(153, 102, 255)',
           backgroundColor: 'rgba(153, 102, 255, 0.8)',
+          stack: 'Stack 0'
+        },
+        {
+          label: 'Cash Outs',
+          data: cashFlowData.map(d => d.cashOuts),
+          borderColor: 'rgb(255, 159, 64)',
+          backgroundColor: 'rgba(255, 159, 64, 0.8)',
           stack: 'Stack 0'
         }
       ],
@@ -1544,8 +1679,11 @@ const ChartManager = {
 
   prepareTokenValuationChartData() {
     if (!State.calculationResults || State.calculationResults.length === 0) {
+      console.warn('No calculation results available for Token Valuations chart');
       return { labels: [], datasets: [] };
     }
+    
+
 
     const labels = this.createEventDrivenLabels();
     
@@ -1554,6 +1692,8 @@ const ChartManager = {
     State.calculationResults.forEach(result => {
       Object.keys(result.tokensByLabel).forEach(label => allLabels.add(label));
     });
+    
+
 
     const datasets = [];
     const colors = [
@@ -1564,14 +1704,39 @@ const ChartManager = {
     let colorIndex = 0;
     allLabels.forEach(label => {
       // Calculate token value for each label
-      const tokenValues = State.calculationResults.map(result => {
+      const tokenValues = labels.map(day => {
+        let result = State.calculationResults.find(r => r.day === day);
+        if (!result) {
+          // Find the last available result before this day
+          const lastResult = State.calculationResults
+            .filter(r => r.day < day)
+            .sort((a, b) => b.day - a.day)[0];
+          if (lastResult) {
+            result = lastResult;
+          } else {
+            return 0;
+          }
+        }
+        
         const totalTokens = result.tokensByLabel[label] || 0;
-        const stage = StageManager.getStageAtDay(result.day);
+        const stage = StageManager.getStageAtDay(day);
         if (!stage) return 0;
         
         // Calculate cash out value per token
-        const cashOutValue = StateMachine.calculateCashOutValueForEvent(1, result.totalSupply, result.revnetBacking, stage.cashOutTax);
-        return totalTokens * cashOutValue;
+        try {
+          const cashOutValue = StateMachine.calculateCashOutValueForEvent(1, result.totalSupply, result.revnetBacking, stage.cashOutTax);
+          const tokenValue = totalTokens * cashOutValue;
+          
+          // Handle extreme values that might cause chart rendering issues
+          if (isNaN(tokenValue) || !isFinite(tokenValue)) {
+            return 0;
+          }
+          
+          return tokenValue;
+        } catch (error) {
+          console.warn('Error calculating token value for', label, 'at day', day, ':', error);
+          return 0;
+        }
       });
       
       // Get the proper display name for the label
@@ -1612,13 +1777,31 @@ const ChartManager = {
     let colorIndex = 0;
     allLabels.forEach(label => {
       // Calculate ROI for each label
-      const roiData = State.calculationResults.map(result => {
+      const roiData = labels.map(day => {
+        let result = State.calculationResults.find(r => r.day === day);
+        if (!result) {
+          // Find the last available result before this day
+          const lastResult = State.calculationResults
+            .filter(r => r.day < day)
+            .sort((a, b) => b.day - a.day)[0];
+          if (lastResult) {
+            result = lastResult;
+          } else {
+            return 0;
+          }
+        }
+        
         const totalTokens = result.tokensByLabel[label] || 0;
-        const stage = StageManager.getStageAtDay(result.day);
+        const stage = StageManager.getStageAtDay(day);
         if (!stage) return 0;
         
         // Calculate cash out value per token
-        const cashOutValue = StateMachine.calculateCashOutValueForEvent(1, result.totalSupply, result.revnetBacking, stage.cashOutTax);
+        try {
+          const cashOutValue = StateMachine.calculateCashOutValueForEvent(1, result.totalSupply, result.revnetBacking, stage.cashOutTax);
+          
+          if (isNaN(cashOutValue) || !isFinite(cashOutValue)) {
+            return 0;
+          }
         
         // Get locked tokens (collateral for loans)
         const lockedTokens = result.loanHistory[label] ? 
@@ -1630,7 +1813,7 @@ const ChartManager = {
         // Calculate total amount cashed out by this entity UP TO THIS DAY ONLY
         let totalCashedOut = 0;
         State.calculationResults.forEach(dayResult => {
-          if (dayResult.day <= result.day) { // Only count cash outs up to current day
+          if (dayResult.day <= day) { // Only count cash outs up to current day
             dayResult.events.forEach(event => {
               if (Utils.normalizeLabel(event.label) === label && event.type.endsWith('-cashout')) {
                 // Calculate actual cash out amount in dollars
@@ -1648,7 +1831,7 @@ const ChartManager = {
         // Calculate invested amount from events UP TO THIS DAY ONLY
         let invested = 0;
         State.calculationResults.forEach(dayResult => {
-          if (dayResult.day <= result.day) { // Only count investments up to current day
+          if (dayResult.day <= day) { // Only count investments up to current day
             dayResult.events.forEach(event => {
               if (Utils.normalizeLabel(event.label) === label && (event.type === 'investment' || event.type === 'revenue')) {
                 invested += event.amount;
@@ -1664,6 +1847,10 @@ const ChartManager = {
           return ((totalValue - invested) / invested) * 100;
         }
         return 0;
+        } catch (error) {
+          console.warn('Error calculating ROI for', label, 'at day', day, ':', error);
+          return 0;
+        }
       });
       
       // Get the proper display name for the label

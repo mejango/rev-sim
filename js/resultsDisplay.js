@@ -140,7 +140,9 @@ const ResultsDisplay = {
     }
     
     const summaryContainer = document.getElementById('summary');
-    if (!summaryContainer) return;
+    if (!summaryContainer) {
+      return;
+    }
     
     const finalResult = State.calculationResults[State.calculationResults.length - 1];
     const lastStage = StageManager.getStageAtDay(finalResult.day);
@@ -162,7 +164,14 @@ const ResultsDisplay = {
     const cashOutValue = StateMachine.calculateCashOutValueForEvent(1, finalResult.totalSupply, finalResult.revnetBacking, lastStage.cashOutTax);
     
     let summaryHTML = '<div class="summary">';
-    summaryHTML += `<h3>Final State (Day ${finalResult.day})</h3>`;
+    summaryHTML += `<div class="collapsible-header" onclick="toggleFinalState()">
+      <div>
+        <h3>Final State (Day ${finalResult.day})</h3>
+        <p style="font-size: 11px; color: #666; margin: 0;">Overview of the Revnet's current state including supply, backing, and token values</p>
+      </div>
+      <span class="toggle-icon">▶</span>
+    </div>
+    <div class="collapsible-content" id="final-state-content" style="display: none;">`;
     summaryHTML += `<p><strong>Current Stage:</strong> ${lastStage.stageIndex + 1}</p>`;
     summaryHTML += `<p><strong>Total Supply:</strong> ${finalResult.totalSupply.toLocaleString()} tokens</p>`;
     summaryHTML += `<p><strong>Liquid Supply:</strong> ${liquidSupply.toLocaleString()} tokens (${totalLockedTokens.toLocaleString()} locked as collateral)</p>`;
@@ -170,9 +179,17 @@ const ResultsDisplay = {
     summaryHTML += `<p><strong>Full Revnet Balance:</strong> ${Utils.formatCurrency(fullRevnetBalance)} (including ${Utils.formatCurrency(totalOutstandingLoans)} in outstanding loans)</p>`;
           summaryHTML += `<p><strong>Issuance Price:</strong> $${issuancePrice.toFixed(2)} (price for new investors)</p>`;
     summaryHTML += `<p><strong>Cash Out Value:</strong> $${cashOutValue.toFixed(8)} per token (cash out tax rate: ${lastStage.cashOutTax}, based on liquid supply)</p>`;
+    summaryHTML += '</div>';
     
     // Split Analytics
-    summaryHTML += '<h3>Split Analytics</h3>';
+    summaryHTML += `<div class="collapsible-header" onclick="toggleSplitAnalytics()">
+      <div>
+        <h3>Split Analytics</h3>
+        <p style="font-size: 11px; color: #666; margin: 0;">Detailed breakdown of token distribution and value for stage splits</p>
+      </div>
+      <span class="toggle-icon">▶</span>
+    </div>
+    <div class="collapsible-content" id="split-analytics-content" style="display: none;">`;
     
     // Get all unique labels from tokensByLabel
     const allLabels = Object.keys(finalResult.tokensByLabel);
@@ -253,6 +270,7 @@ const ResultsDisplay = {
         </div>
       `;
     });
+    summaryHTML += '</div>';
     
     // Payer Analytics - only show entities that actually invested money
     const payerLabels = allLabels.filter(label => {
@@ -275,7 +293,14 @@ const ResultsDisplay = {
     });
     
     if (payerLabels.length > 0) {
-      summaryHTML += '<h3>Payer Analytics</h3>';
+      summaryHTML += `<div class="collapsible-header" onclick="togglePayerAnalytics()">
+        <div>
+          <h3>Payer Analytics</h3>
+          <p style="font-size: 11px; color: #666; margin: 0;">Investment performance and returns for entities that invested money or paid revenues in</p>
+        </div>
+        <span class="toggle-icon">▶</span>
+      </div>
+      <div class="collapsible-content" id="payer-analytics-content" style="display: none;">`;
       
       payerLabels.forEach(label => {
         const totalTokens = finalResult.tokensByLabel[label] || 0;
@@ -336,10 +361,12 @@ const ResultsDisplay = {
           </div>
         `;
       });
+      summaryHTML += '</div>';
     }
     
     summaryHTML += '</div>';
     summaryContainer.innerHTML = summaryHTML;
+
   },
 
   showLoading() {
