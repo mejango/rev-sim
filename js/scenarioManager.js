@@ -499,19 +499,25 @@ const ScenarioManager = {
     // Store current selected operations
     const currentSelected = new Set(this.selectedOperationsScenarios);
     
-    // Load the base growth scenario (this will clear selectedOperationsScenarios)
+    // Load the base growth scenario (this will clear all events and selectedOperationsScenarios)
     this.loadGrowthScenario(this.currentScenario);
     
     // Restore selected operations
     this.selectedOperationsScenarios = currentSelected;
     
-    // Add all selected operations scenarios
+    // Collect all events from selected operations scenarios
+    const allOperationsEvents = [];
     this.selectedOperationsScenarios.forEach(operationsKey => {
       const operationsScenario = this.scenarios[operationsKey];
       if (operationsScenario) {
-        this.addOperationsEvents(operationsScenario.events, operationsKey);
+        allOperationsEvents.push(...operationsScenario.events);
       }
     });
+    
+    // Add all operations events at once
+    if (allOperationsEvents.length > 0) {
+      this.addOperationsEvents(allOperationsEvents, 'combined-operations');
+    }
     
     // Update the description to show all selected operations
     this.updateMultiOperationsDescription();
@@ -521,6 +527,16 @@ const ScenarioManager = {
       const checkbox = document.getElementById(`ops-${operationsKey}`);
       if (checkbox) {
         checkbox.checked = true;
+      }
+    });
+    
+    // Also uncheck checkboxes for deselected operations
+    Object.keys(this.scenarios).forEach(scenarioKey => {
+      if (scenarioKey.includes('-with-')) {
+        const checkbox = document.getElementById(`ops-${scenarioKey}`);
+        if (checkbox) {
+          checkbox.checked = this.selectedOperationsScenarios.has(scenarioKey);
+        }
       }
     });
   },
