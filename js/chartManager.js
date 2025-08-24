@@ -248,8 +248,6 @@ const ChartManager = {
     });
   },
 
-
-
   createLoanPotentialChart() {
     const ctx = document.getElementById('loanPotentialChart');
     if (!ctx) return;

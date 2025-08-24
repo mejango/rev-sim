@@ -384,7 +384,6 @@ const ScenarioManager = {
   },
 
   addOperationsEvents(operationsEvents, operationsScenarioKey) {
-    console.log('addOperationsEvents called with:', operationsEvents.length, 'events');
     
     // Add operations events to existing growth scenario events
     operationsEvents.forEach(eventData => {
@@ -479,15 +478,11 @@ const ScenarioManager = {
   },
 
   toggleOperationsScenario(scenarioKey, isSelected) {
-    console.log('toggleOperationsScenario called:', scenarioKey, isSelected);
-    
     if (isSelected) {
       this.selectedOperationsScenarios.add(scenarioKey);
     } else {
       this.selectedOperationsScenarios.delete(scenarioKey);
     }
-    
-    console.log('Selected operations scenarios:', Array.from(this.selectedOperationsScenarios));
     
     // Reload the current growth scenario with all selected operations
     this.reloadCurrentScenarioWithOperations();
