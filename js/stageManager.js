@@ -158,9 +158,9 @@ const StageManager = {
     
     const splitHTML = `
       <div class="split-item" id="split-${splitId}">
-        <input type="text" id="split-label-${splitId}" placeholder="Label (e.g., Team, Treasury)" value="${defaultLabel}" onchange="EventManager.updateAllEventTypes(); Calculator.clearResults();">
+        <input type="text" id="split-label-${splitId}" placeholder="Label (e.g., Team, Treasury)" value="${defaultLabel}" onchange="EventManager.updateAllEventTypes(); EventManager.autoCalculate();">
         <div class="percent-wrapper">
-          <input type="number" id="split-percent-${splitId}" placeholder="0" value="${defaultPercent}" min="0" max="100" step="0.1" onchange="StageManager.updateSplitsTotal(${stageId})">
+          <input type="number" id="split-percent-${splitId}" placeholder="0" value="${defaultPercent}" min="0" max="100" step="0.1" onchange="StageManager.updateSplitsTotal(${stageId}); EventManager.autoCalculate();">
         </div>
         <button class="small remove" onclick="StageManager.removeSplit(${stageId}, ${splitId})">×</button>
       </div>

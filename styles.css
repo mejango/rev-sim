@@ -108,14 +108,15 @@ button.remove {
 }
 
 .scenario-option .scenario-btn:hover {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    background: #f8f9fa;
+    border-color: #007bff;
 }
 
 .scenario-option input[type="checkbox"]:checked + .scenario-btn {
-    border: 2px solid #28a745;
-    background: #f8fff9;
-    color: #28a745;
-    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.2);
+    background: #f8f9fa;
+    border: 1px solid #007bff;
+    color: #333;
+    box-shadow: none;
 }
 
 .event-card.hidden {
@@ -244,29 +245,27 @@ h4 { font-size: 12px; }
 }
 
 .scenario-btn {
-  padding: 14px;
+  padding: 12px;
   border: 1px solid #ddd;
-  border-radius: 8px;
+  border-radius: 4px;
   background: white;
   cursor: pointer;
   text-align: left;
-
   font-size: 12px;
   line-height: 1.4;
 }
 
 .scenario-btn:hover {
-  border-color: #007bff;
+  border-color: #999;
   background: #f8f9fa;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .scenario-btn.investor {
-  border-left: 4px solid #28a745;
+  border-left: none;
 }
 
 .scenario-btn.builder {
-  border-left: 4px solid #007bff;
+  border-left: none;
 }
 
 .scenario-btn strong {

@@ -54,7 +54,7 @@ const ChartManager = {
           const internalFee = loanAmount * 0.025;
           const protocolFee = loanAmount * 0.035;
           contextInfo.push(`• ${event.label} took out a loan of ${Utils.formatCurrency(loanAmount)}`);
-          contextInfo.push(`• ${Utils.formatCurrency(event.amount)} tokens locked as collateral`);
+          contextInfo.push(`• ${event.amount} tokens locked as collateral`);
           contextInfo.push(`• Internal fee of ${Utils.formatCurrency(internalFee)} added to treasury`);
           contextInfo.push(`• Protocol fee of ${Utils.formatCurrency(protocolFee)} paid to external entities`);
           contextInfo.push(`• Treasury reduced by ${Utils.formatCurrency(loanAmount - internalFee)}`);
@@ -70,7 +70,7 @@ const ChartManager = {
             repaymentAmount = StateMachine.calculateCashOutValueForEvent(event.amount, stateBefore.totalSupply, stateBefore.revnetBacking, repayStage.cashOutTax);
           }
           contextInfo.push(`• ${event.label} paid back ${Utils.formatCurrency(repaymentAmount)} of loan`);
-          contextInfo.push(`• ${Utils.formatCurrency(event.amount)} tokens unlocked from collateral`);
+          contextInfo.push(`• ${event.amount} tokens unlocked from collateral`);
           contextInfo.push(`• Interest fees added to treasury as revenue`);
           contextInfo.push(`• Treasury increased by ${Utils.formatCurrency(repaymentAmount)}`);
           break;
@@ -1459,7 +1459,9 @@ const ChartManager = {
         }
         const totalTokens = result.tokensByLabel[label] || 0;
         const collateralizedTokens = StateMachine.getCollateralizedTokens(label, day);
-        return totalTokens > 0 ? (collateralizedTokens / totalTokens) * 100 : 0;
+        const percentage = totalTokens > 0 ? (collateralizedTokens / totalTokens) * 100 : 0;
+        // Cap at 100% to prevent impossible values
+        return Math.min(percentage, 100);
       });
       
       // Get the original display name for this label

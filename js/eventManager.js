@@ -120,6 +120,38 @@ const EventManager = {
         setTimeout(() => this.autoCalculate(), 100);
       }
     });
+
+    // Listen for event label changes
+    document.addEventListener('blur', (e) => {
+      if (e.target.id && e.target.id.startsWith('event-label-')) {
+        // Auto-calculate when event label changes
+        setTimeout(() => this.autoCalculate(), 100);
+      }
+    }, true);
+
+    // Listen for splits label changes
+    document.addEventListener('blur', (e) => {
+      if (e.target.id && e.target.id.includes('split-label-')) {
+        // Auto-calculate when splits label changes
+        setTimeout(() => this.autoCalculate(), 100);
+      }
+    }, true);
+
+    // Listen for splits percentage changes
+    document.addEventListener('blur', (e) => {
+      if (e.target.id && e.target.id.includes('split-percent-')) {
+        // Auto-calculate when splits percentage changes
+        setTimeout(() => this.autoCalculate(), 100);
+      }
+    }, true);
+
+    // Also listen for change events on splits fields
+    document.addEventListener('change', (e) => {
+      if (e.target.id && (e.target.id.includes('split-label-') || e.target.id.includes('split-percent-'))) {
+        // Auto-calculate when splits change
+        setTimeout(() => this.autoCalculate(), 100);
+      }
+    });
   },
 
 

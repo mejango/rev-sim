@@ -96,7 +96,14 @@ const StateMachine = {
         // Handle loans
         const label = event.type.replace('-loan', '');
         const normalizedLabel = Utils.normalizeLabel(label);
-        const tokensLocked = event.amount; // Amount is already in tokens, not M tokens
+        let tokensLocked = event.amount; // Amount is already in tokens, not M tokens
+        
+        // Check if entity has enough tokens to lock as collateral
+        const availableTokens = tokensByLabel[normalizedLabel] || 0;
+        if (tokensLocked > availableTokens) {
+          console.warn(`Warning: ${label} trying to lock ${tokensLocked} tokens but only has ${availableTokens} available. Limiting to available tokens.`);
+          tokensLocked = Math.min(tokensLocked, availableTokens);
+        }
         
         // Calculate loan amount using bonding curve
         const stage = typeof StageManager !== 'undefined' ? StageManager.getStageAtDay(event.day) : null;
