@@ -445,14 +445,36 @@ const EventManager = {
     // Check if this changes the current scenario
     this.checkScenarioChange();
     
-    // Calculate the next day based on existing events
+    // Calculate the day based on position and surrounding events
     let nextDay = 0;
     if (State.events.length > 0) {
       const allEvents = this.getAllEvents().allEvents;
       if (allEvents.length > 0) {
-        // Find the highest day among existing events
-        const maxDay = Math.max(...allEvents.map(e => e.day));
-        nextDay = maxDay + 1;
+                 if (position !== null && position <= allEvents.length) {
+           // Insert at specific position - calculate day based on surrounding events
+           if (position === 0) {
+             // Insert at beginning - use day 0 or day of first event - 1
+             nextDay = allEvents.length > 0 ? Math.max(0, allEvents[0].day - 1) : 0;
+           } else if (position === allEvents.length) {
+             // Insert at end - use day of last event + 1
+             nextDay = allEvents[allEvents.length - 1].day + 1;
+           } else {
+             // Insert between events - use day of previous event + 1, or same day if next event is also at that day
+             const prevEvent = allEvents[position - 1];
+             const nextEvent = allEvents[position];
+             if (prevEvent && nextEvent && nextEvent.day === prevEvent.day) {
+               nextDay = prevEvent.day; // Same day if next event is also at that day
+             } else if (prevEvent) {
+               nextDay = prevEvent.day + 1; // Previous day + 1
+             } else {
+               nextDay = 0; // Fallback
+             }
+           }
+         } else {
+           // Append to end (default behavior)
+           const maxDay = Math.max(...allEvents.map(e => e.day));
+           nextDay = maxDay + 1;
+         }
       }
     }
     
@@ -496,13 +518,12 @@ const EventManager = {
       // Insert at specific position
       const eventsContainer = UI.$('events');
       const eventElements = eventsContainer.querySelectorAll('.event-card');
-      const addEventButtons = eventsContainer.querySelectorAll('.add-event-here');
       
       if (position === 0) {
         // Insert at the beginning
         eventsContainer.insertBefore(eventElement, eventsContainer.firstChild);
       } else if (position <= eventElements.length) {
-        // Insert after the specified event
+        // Insert after the specified event (position is 1-based index)
         const targetElement = eventElements[position - 1];
         eventsContainer.insertBefore(eventElement, targetElement.nextSibling);
       } else {

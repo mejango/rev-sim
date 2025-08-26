@@ -96,13 +96,19 @@ const ScenarioManager = {
       narrative: "Building on the conservative growth pattern, the team takes substantial loans against their tokens to fund critical operations and expansion, demonstrating how teams can leverage their token holdings for working capital.",
       events: [
         { day: 0, type: "investment", amount: 10, label: "Angel Investor" },
+        { day: 30, type: "loan", amount: 0.8, label: "Team" },
         { day: 90, type: "revenue", amount: 2, label: "Q1 Revenue" },
+        { day: 120, type: "loan", amount: 1.2, label: "Team" },
         { day: 180, type: "revenue", amount: 2.2, label: "Q2 Revenue" },
-        { day: 270, type: "loan", amount: 2.5, label: "Team" },
-        { day: 360, type: "revenue", amount: 2.66, label: "Q3 Revenue" },
-        { day: 450, type: "loan", amount: 1.8, label: "Team" },
-        { day: 540, type: "revenue", amount: 3.22, label: "Q4 Revenue" },
-        { day: 630, type: "payback-loan", amount: 1.5, label: "Team" }
+        { day: 210, type: "loan", amount: 1.5, label: "Team" },
+        { day: 270, type: "revenue", amount: 2.42, label: "Q3 Revenue" },
+        { day: 300, type: "loan", amount: 1.8, label: "Team" },
+        { day: 365, type: "revenue", amount: 2.66, label: "Q4 Revenue" },
+        { day: 395, type: "loan", amount: 2.0, label: "Team" },
+        { day: 455, type: "revenue", amount: 2.93, label: "Q1 Revenue" },
+        { day: 485, type: "loan", amount: 2.2, label: "Team" },
+        { day: 545, type: "revenue", amount: 3.22, label: "Q2 Revenue" },
+        { day: 575, type: "payback-loan", amount: 1.0, label: "Team" }
       ]
     },
 
@@ -127,12 +133,17 @@ const ScenarioManager = {
       narrative: "Building on the bootstrap pattern, the team uses substantial loans to fund critical expansion while maintaining organic growth momentum, showing how bootstrapped companies can scale without external funding.",
       events: [
         { day: 0, type: "investment", amount: 1, label: "Founder Investment" },
+        { day: 20, type: "loan", amount: 0.3, label: "Team" },
         { day: 60, type: "revenue", amount: 0.5, label: "First Revenue" },
+        { day: 90, type: "loan", amount: 0.5, label: "Team" },
         { day: 180, type: "revenue", amount: 1, label: "Growing Revenue" },
+        { day: 210, type: "loan", amount: 0.8, label: "Team" },
         { day: 240, type: "loan", amount: 1.2, label: "Team" },
         { day: 300, type: "revenue", amount: 2, label: "Scaling Revenue" },
+        { day: 330, type: "loan", amount: 1.0, label: "Team" },
         { day: 360, type: "loan", amount: 0.8, label: "Team" },
         { day: 420, type: "revenue", amount: 4, label: "Expanding Revenue" },
+        { day: 450, type: "loan", amount: 1.5, label: "Team" },
         { day: 480, type: "payback-loan", amount: 1.0, label: "Team" }
       ]
     },
@@ -204,14 +215,25 @@ const ScenarioManager = {
       narrative: "Building on the exponential growth pattern, the team uses substantial loans to fund aggressive expansion and capitalize on rapid growth opportunities, demonstrating how hypergrowth companies can leverage their token value for massive scaling.",
       events: [
         { day: 0, type: "investment", amount: 5, label: "Seed Investor" },
+        { day: 15, type: "loan", amount: 1.0, label: "Team" },
+        { day: 45, type: "loan", amount: 1.5, label: "Team" },
         { day: 90, type: "revenue", amount: 1, label: "Q1 Revenue" },
+        { day: 105, type: "loan", amount: 2.0, label: "Team" },
+        { day: 135, type: "loan", amount: 2.5, label: "Team" },
         { day: 180, type: "revenue", amount: 2, label: "Q2 Revenue" },
+        { day: 195, type: "loan", amount: 3.0, label: "Team" },
+        { day: 225, type: "loan", amount: 3.5, label: "Team" },
         { day: 270, type: "revenue", amount: 4, label: "Q3 Revenue" },
-        { day: 360, type: "loan", amount: 3.5, label: "Team" },
-        { day: 450, type: "revenue", amount: 8, label: "Q5 Revenue" },
-        { day: 540, type: "revenue", amount: 16, label: "Q6 Revenue" },
-        { day: 630, type: "loan", amount: 2.8, label: "Team" },
-        { day: 720, type: "payback-loan", amount: 2.0, label: "Team" }
+        { day: 285, type: "loan", amount: 4.0, label: "Team" },
+        { day: 315, type: "loan", amount: 4.5, label: "Team" },
+        { day: 360, type: "revenue", amount: 8, label: "Q4 Revenue" },
+        { day: 375, type: "loan", amount: 5.0, label: "Team" },
+        { day: 405, type: "loan", amount: 5.5, label: "Team" },
+        { day: 450, type: "revenue", amount: 16, label: "Q5 Revenue" },
+        { day: 465, type: "loan", amount: 6.0, label: "Team" },
+        { day: 495, type: "loan", amount: 6.5, label: "Team" },
+        { day: 540, type: "revenue", amount: 32, label: "Q6 Revenue" },
+        { day: 555, type: "payback-loan", amount: 3.0, label: "Team" }
       ]
     },
 
@@ -236,13 +258,21 @@ const ScenarioManager = {
       narrative: "Building on the VC-fueled pattern, the team uses substantial bridge loans between major funding rounds to maintain aggressive growth momentum and capitalize on market opportunities.",
       events: [
         { day: 0, type: "investment", amount: 2, label: "Angel Investor" },
+        { day: 30, type: "loan", amount: 0.8, label: "Team" },
         { day: 90, type: "investment", amount: 10, label: "Series A" },
+        { day: 120, type: "loan", amount: 1.5, label: "Team" },
         { day: 180, type: "revenue", amount: 3, label: "Product Revenue" },
+        { day: 210, type: "loan", amount: 2.0, label: "Team" },
         { day: 270, type: "investment", amount: 25, label: "Series B" },
-        { day: 360, type: "loan", amount: 2.2, label: "Team" },
+        { day: 300, type: "loan", amount: 2.5, label: "Team" },
+        { day: 330, type: "loan", amount: 2.2, label: "Team" },
+        { day: 360, type: "loan", amount: 2.0, label: "Team" },
         { day: 450, type: "revenue", amount: 15, label: "Mature Revenue" },
+        { day: 480, type: "loan", amount: 2.8, label: "Team" },
         { day: 540, type: "investment", amount: 50, label: "Series C" },
-        { day: 630, type: "loan", amount: 1.8, label: "Team" },
+        { day: 570, type: "loan", amount: 3.0, label: "Team" },
+        { day: 600, type: "loan", amount: 1.8, label: "Team" },
+        { day: 630, type: "loan", amount: 1.5, label: "Team" },
         { day: 720, type: "payback-loan", amount: 2.0, label: "Team" }
       ]
     },
