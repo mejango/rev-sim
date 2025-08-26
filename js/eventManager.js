@@ -955,7 +955,7 @@ const EventManager = {
     // Show fee distribution token gains
     if (internalFeeDistribution.length > 0) {
       internalFeeDistribution.forEach(split => {
-        stateHTML += `<tr><td></td><td>• ${split.label}: <strong>+${Utils.formatCurrency(split.amount)}</strong> <em>(${formatTokens(split.tokensBefore)} → ${formatTokens(split.tokensAfter)} tokens)</em></td></tr>`;
+        stateHTML += `<tr><td></td><td>• ${split.label}: <strong>+${formatTokens(split.amount)}</strong> <em>(${formatTokens(split.tokensBefore)} → ${formatTokens(split.tokensAfter)} tokens)</em></td></tr>`;
       });
     }
     
@@ -963,7 +963,7 @@ const EventManager = {
     if (feePayerAmount > 0) {
       // The fee payer's total tokens increased, but their available tokens decreased due to collateralization
       const feePayerAvailableAfter = availableTokensAfter + feePayerTokensIssued;
-      stateHTML += `<tr><td></td><td>• ${entityLabel} (fee payer): <strong>+${Utils.formatCurrency(feePayerAmount)}</strong> <em>(${formatTokens(availableTokensAfter)} → ${formatTokens(feePayerAvailableAfter)} available tokens)</em></td></tr>`;
+      stateHTML += `<tr><td></td><td>• ${entityLabel} (fee payer): <strong>+${formatTokens(feePayerAmount)}</strong> <em>(${formatTokens(availableTokensAfter)} → ${formatTokens(feePayerAvailableAfter)} available tokens)</em></td></tr>`;
     }
     
     stateHTML += `</table>`;
