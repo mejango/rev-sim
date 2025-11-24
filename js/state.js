@@ -1,4 +1,4 @@
-// State and StateMachine for Revnet Calculator
+// State and StateMachine for Revnet Planner
 const State = {
   stages: [],
   events: [],

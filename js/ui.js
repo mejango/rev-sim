@@ -1,4 +1,4 @@
-// UI utilities for Revnet Calculator
+// UI utilities for Revnet Planner
 const UI = {
   currentView: 'controls',
 

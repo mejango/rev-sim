@@ -1,6 +1,6 @@
-# RevNet Calculator
+# RevNet Planner
 
-A comprehensive simulation tool for modeling RevNet (Revenue Network) financial protocols. This calculator allows you to simulate token economics, loan systems, fee structures, and cash flows in a RevNet environment.
+A comprehensive simulation tool for modeling RevNet (Revenue Network) financial protocols. This planner allows you to simulate token economics, loan systems, fee structures, and cash flows in a RevNet environment.
 
 ## What is a RevNet?
 

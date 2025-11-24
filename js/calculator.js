@@ -1,4 +1,4 @@
-// Calculator module for Revnet Calculator
+// Calculator module for Revnet Planner
 const Calculator = {
   run() {
     try {

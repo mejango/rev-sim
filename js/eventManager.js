@@ -1,4 +1,4 @@
-// Event management for Revnet Calculator
+// Event management for Revnet Planner
 const EventManager = {
   // Helper function to convert generic event types to specific types
   getSpecificEventType(eventType, eventId) {

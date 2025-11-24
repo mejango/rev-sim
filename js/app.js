@@ -1,4 +1,4 @@
-// Main application module for Revnet Calculator
+// Main application module for Revnet Planner
 const App = {
   init() {
     // Initialize UI

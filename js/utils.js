@@ -1,4 +1,4 @@
-// Utility constants and functions for Revnet Calculator
+// Utility constants and functions for Revnet Planner
 const FEES = {
   LOAN_INTERNAL: 0.025,
   LOAN_PROTOCOL: 0.035

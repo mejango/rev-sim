@@ -1,4 +1,4 @@
-// Chart management for Revnet Calculator
+// Chart management for Revnet Planner
 const ChartManager = {
   // Common chart options to disable animations
   getChartOptions() {

@@ -1,4 +1,4 @@
-// Stage management for Revnet Calculator
+// Stage management for Revnet Planner
 const StageManager = {
   addStage(autoAdded = false) {
     const id = State.counters.stage++;

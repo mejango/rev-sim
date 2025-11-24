@@ -1,4 +1,4 @@
-// Scenario Manager for Revnet Calculator
+// Scenario Manager for Revnet Planner
 const ScenarioManager = {
   scenarios: {
     'conservative-growth': {

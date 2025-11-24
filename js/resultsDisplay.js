@@ -1,4 +1,4 @@
-// Results display for Revnet Calculator
+// Results display for Revnet Planner
 const ResultsDisplay = {
   showTable() {
     if (!State.calculationResults || State.calculationResults.length === 0) {
