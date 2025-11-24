@@ -80,73 +80,81 @@ CORE MECHANICS:
         </div>
       </div>
       <div class="section-divider">
-        <div style="margin-top: 20px;">
-          <div class="collapsible-header" onclick="toggleScenarios()">
-            <div>
-              <h3>Scenarios</h3>
-              <p style="font-size: 11px; color: #666; margin: 0;">Choose from predefined scenarios to explore different Revnet strategies</p>
-              <div id="selected-scenario-indicator" style="display: none; margin: 10px 0 0 0; padding: 8px; background: #e8f5e8; border: 1px solid #28a745; border-radius: 4px; font-size: 12px;">
-                <strong>Selected:</strong> <span id="selected-scenario-name"></span>
-              </div>
+        <div class="collapsible-header" onclick="toggleEvents()">
+          <div>
+            <h3>Events</h3>
+            <p style="font-size: 11px; color: #666; margin: 0;">Load a scenario or customize your own sequence of investments, revenue, loans, and cash outs</p>
+            <div style="margin-top: 8px;">
+              <button class="small" onclick="ScenarioManager.loadNone(); event.stopPropagation();" style="background: #6c757d; color: white; margin-right: 8px;">Clear & Customize</button>
+              <button class="small" id="save-scenario-btn" style="background: #28a745; color: white; display: none; margin-right: 8px;">💾 Save</button>
+              <button class="small" id="export-scenario-btn" style="background: #17a2b8; color: white; margin-right: 8px;">📤 Export</button>
+              <button class="small" id="import-scenario-btn" style="background: #fd7e14; color: white;">📥 Import</button>
             </div>
-            <span class="toggle-icon">▶</span>
           </div>
-          <div class="collapsible-content" id="scenarios-container" style="display: none;">
-            
-            <h4 style="margin: 20px 0 10px 0; color: #333; font-size: 16px;">1. Growth scenarios</h4>
-            <p style="font-size: 12px; color: #666; margin: 0 0 15px 0; line-height: 1.4;">Choose a scenario to see how different Revnet growth strategies play out</p>
-            <div class="scenario-buttons">
-              <button class="scenario-btn investor" onclick="ScenarioManager.loadScenario('conservative-growth')">
-                <strong>Conservative Growth</strong><br>
-                <small>Steady 10% revenue growth YOY</small>
-              </button>
-              <button class="scenario-btn investor" onclick="ScenarioManager.loadScenario('hypergrowth')">
-                <strong>Hypergrowth</strong><br>
-                <small>10x revenue growth YOY</small>
-              </button>
-              <button class="scenario-btn builder" onclick="ScenarioManager.loadScenario('bootstrap-scale')">
-                <strong>Bootstrap to Scale</strong><br>
-                <small>Start small, grow organically</small>
-              </button>
-              <button class="scenario-btn builder" onclick="ScenarioManager.loadScenario('vc-fueled')">
-                <strong>VC-Fueled Growth</strong><br>
-                <small>Series A, B, C funding rounds</small>
-              </button>
-              <button class="scenario-btn builder" onclick="ScenarioManager.loadScenario('community-driven')">
-                <strong>Community-Driven</strong><br>
-                <small>Focus on token splits and incentives</small>
-              </button>
-              <button class="scenario-btn investor" onclick="ScenarioManager.loadScenario('boom-bust')">
-                <strong>Boom-Bust Cycle</strong><br>
-                <small>Rapid growth followed by correction</small>
-              </button>
-            </div>
-            
-            <h4 style="margin: 30px 0 10px 0; color: #333; font-size: 16px;">2. Operations scenarios</h4>
-            <p style="font-size: 12px; color: #666; margin: 0 0 15px 0; line-height: 1.4;">Explore how loans and cashouts can be integrated into the selected growth strategy</p>
-            <div class="scenario-buttons" id="capital-access-buttons">
-              <!-- Dynamic content will be populated by JavaScript -->
-            </div>
-            
-            <div id="scenario-description" style="display: none; margin-top: 25px; padding: 15px; background: #f8f9fa; border-radius: 6px; font-size: 13px; line-height: 1.5; border-left: 4px solid #28a745;"></div>
-            
-            <div style="margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px;">
-              <div class="collapsible-header" onclick="toggleEvents()" style="background: #f8f9fa; border-radius: 6px; padding: 12px 15px; margin-bottom: 15px;">
-                <div>
-                  <h4 style="margin: 0; color: #666; font-size: 14px;">View and customize scenario event sequence</h4>
-                  <p style="font-size: 11px; color: #999; margin: 3px 0 0 0;">Configure the sequence of investments, revenue, loans, and cash outs</p>
-                </div>
-                <span class="toggle-icon" style="font-size: 12px;">▶</span>
-              </div>
-              <div class="collapsible-content" id="events-container" style="display: none;">
-                <div id="events"></div>
-                <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
-                  <button class="small" id="save-scenario-btn" style="background: #28a745; color: white; display: none; margin-right: 8px;">💾 Save your scenario</button>
-                  <button class="small" id="export-scenario-btn" style="background: #17a2b8; color: white; margin-right: 8px;">📤 Export Scenario</button>
-                  <button class="small" id="import-scenario-btn" style="background: #fd7e14; color: white;">📥 Import Scenario</button>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="collapsible-content" id="events-container" style="display: block;">
+          
+          <div style="margin-bottom: 25px; padding-bottom: 20px; border-bottom: 2px solid #eee;">
+            <div class="collapsible-header" onclick="toggleScenarios()" style="background: #f8f9fa; border-radius: 6px; padding: 12px 15px; margin-bottom: 15px;">
+              <div>
+                <h4 style="margin: 0; color: #333; font-size: 14px;">Load a Scenario</h4>
+                <p style="font-size: 11px; color: #666; margin: 3px 0 0 0;">Quickly load predefined scenarios or start from scratch</p>
+                <div id="selected-scenario-indicator" style="display: none; margin: 10px 15px 0 0; padding: 8px; background: #e8f5e8; border: 1px solid #28a745; border-radius: 4px; font-size: 12px;">
+                  <strong>Selected:</strong> <span id="selected-scenario-name"></span>
                 </div>
               </div>
+              <span class="toggle-icon" style="font-size: 12px;">▶</span>
             </div>
+            <div class="collapsible-content" id="scenarios-container" style="display: none;">
+              
+              <h4 style="margin: 20px 0 10px 0; color: #333; font-size: 16px;">Growth scenarios</h4>
+              <p style="font-size: 12px; color: #666; margin: 0 0 15px 0; line-height: 1.4;">Choose a scenario to see how different Revnet growth strategies play out</p>
+              <div class="scenario-buttons">
+                <button class="scenario-btn" id="scenario-btn-none" onclick="ScenarioManager.loadNone()">
+                  <strong>None</strong><br>
+                  <small>Start with a blank slate</small>
+                </button>
+                <button class="scenario-btn investor" id="scenario-btn-conservative-growth" onclick="ScenarioManager.loadScenario('conservative-growth')">
+                  <strong>Conservative Growth</strong><br>
+                  <small>Steady 10% revenue growth YOY</small>
+                </button>
+                <button class="scenario-btn investor" id="scenario-btn-hypergrowth" onclick="ScenarioManager.loadScenario('hypergrowth')">
+                  <strong>Hypergrowth</strong><br>
+                  <small>10x revenue growth YOY</small>
+                </button>
+                <button class="scenario-btn builder" id="scenario-btn-bootstrap-scale" onclick="ScenarioManager.loadScenario('bootstrap-scale')">
+                  <strong>Bootstrap to Scale</strong><br>
+                  <small>Start small, grow organically</small>
+                </button>
+                <button class="scenario-btn builder" id="scenario-btn-vc-fueled" onclick="ScenarioManager.loadScenario('vc-fueled')">
+                  <strong>VC-Fueled Growth</strong><br>
+                  <small>Series A, B, C funding rounds</small>
+                </button>
+                <button class="scenario-btn builder" id="scenario-btn-community-driven" onclick="ScenarioManager.loadScenario('community-driven')">
+                  <strong>Community-Driven</strong><br>
+                  <small>Focus on token splits and incentives</small>
+                </button>
+                <button class="scenario-btn investor" id="scenario-btn-boom-bust" onclick="ScenarioManager.loadScenario('boom-bust')">
+                  <strong>Boom-Bust Cycle</strong><br>
+                  <small>Rapid growth followed by correction</small>
+                </button>
+              </div>
+              
+              <h4 style="margin: 30px 0 10px 0; color: #333; font-size: 16px;">Operations scenarios</h4>
+              <p style="font-size: 12px; color: #666; margin: 0 0 15px 0; line-height: 1.4;">Explore how loans and cashouts can be integrated into the selected growth strategy</p>
+              <div class="scenario-buttons" id="capital-access-buttons">
+                <!-- Dynamic content will be populated by JavaScript -->
+              </div>
+              
+              <div id="scenario-description" style="display: none; margin-top: 25px; padding: 15px; background: #f8f9fa; border-radius: 6px; font-size: 13px; line-height: 1.5; border-left: 4px solid #28a745;"></div>
+            </div>
+          </div>
+          
+          <div>
+            <h4 style="margin: 0 0 15px 0; color: #333; font-size: 16px;">Event Sequence</h4>
+            <p style="font-size: 12px; color: #666; margin: 0 0 15px 0; line-height: 1.4;">Configure the sequence of investments, revenue, loans, and cash outs</p>
+            <div id="events"></div>
           </div>
         </div>
       </div>

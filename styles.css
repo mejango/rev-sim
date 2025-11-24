@@ -245,38 +245,48 @@ h4 { font-size: 12px; }
 }
 
 .scenario-btn {
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: 8px;
+  border: 3px solid #333;
+  border-radius: 0;
   background: white;
   cursor: pointer;
   text-align: left;
   font-size: 12px;
-  line-height: 1.4;
+  line-height: 1.2;
+  box-shadow: none;
 }
 
 .scenario-btn:hover {
-  border-color: #999;
+  border-color: #000;
   background: #f8f9fa;
 }
 
+.scenario-btn.selected {
+  background: #f0f0f0;
+  border-color: #333;
+}
+
 .scenario-btn.investor {
-  border-left: none;
+  border-left: 3px solid #333;
 }
 
 .scenario-btn.builder {
-  border-left: none;
+  border-left: 3px solid #333;
 }
 
 .scenario-btn strong {
   color: #333;
   display: block;
-  margin-bottom: 2px;
+  margin-bottom: -2px;
+  line-height: 1;
 }
 
 .scenario-btn small {
   color: #666;
   font-size: 11px;
+  line-height: 1;
+  display: block;
+  margin-top: 0;
 }
 
 .event-card {

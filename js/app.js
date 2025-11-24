@@ -29,14 +29,19 @@ const App = {
     // Validate event ordering
     EventManager.validateAllEventOrdering();
     
-    const calculationSuccess = Calculator.run();
+    // Always create charts (even with empty data) so axes are visible
+    ChartManager.createAll();
+    
+    // Only run calculation if there are events
+    if (State.events && State.events.length > 0) {
+      const calculationSuccess = Calculator.run();
 
-    if (calculationSuccess && State.calculationResults && State.calculationResults.length > 0) {
-      ChartManager.createAll();
-      ResultsDisplay.updateAll();
-    } else {
-      console.error('Calculation failed or no results');
+      if (calculationSuccess && State.calculationResults && State.calculationResults.length > 0) {
+        ChartManager.updateAll();
+        ResultsDisplay.updateAll();
+      }
     }
+    // If no events, that's expected for blank slate - don't show error
   
     ResultsDisplay.hideLoading();
     

@@ -5,6 +5,25 @@ const StageManager = {
     const isFirst = State.stages.length === 0;
     const stageNum = State.stages.length + 1;
     
+    // If auto-added, inherit settings from the previous stage
+    let hasCuts = !autoAdded; // Default: checked for first stage, unchecked for auto-added
+    let cutValue = 50;
+    let periodValue = 90;
+    let taxValue = 0.1;
+    
+    if (autoAdded && State.stages.length > 0) {
+      const prevStageId = State.stages[State.stages.length - 1];
+      const prevHasCuts = UI.$(`stage-has-cuts-${prevStageId}`)?.checked || false;
+      const prevCutValue = UI.$(`stage-cut-${prevStageId}`)?.value || '50';
+      const prevPeriodValue = UI.$(`stage-period-${prevStageId}`)?.value || '90';
+      const prevTaxValue = UI.$(`stage-tax-${prevStageId}`)?.value || '0.1';
+      
+      hasCuts = prevHasCuts;
+      cutValue = prevCutValue;
+      periodValue = prevPeriodValue;
+      taxValue = prevTaxValue;
+    }
+    
     const stageHTML = `
       <div class="stage-card" id="stage-${id}">
         <h4>Stage ${stageNum} ${!isFirst ? `<button class="small remove" onclick="StageManager.removeStage(${id})">Remove</button>` : '(Initial)'}</h4>
@@ -20,34 +39,34 @@ const StageManager = {
           </div>
         </div>
         
-        <label>
-          <input type="checkbox" id="stage-has-cuts-${id}" onchange="StageManager.toggleCuts(${id})" ${autoAdded ? '' : 'checked'}>
+        <label style="margin-top: 10px; display: block;">
+          <input type="checkbox" id="stage-has-cuts-${id}" onchange="StageManager.toggleCuts(${id})" ${hasCuts ? 'checked' : ''}>
           Add automatic issuance cuts?
         </label>
-        <div id="stage-cuts-${id}" class="cuts-section" ${autoAdded ? 'style="display: none;"' : ''}>
+        <div id="stage-cuts-${id}" class="cuts-section" style="${hasCuts ? 'display: block;' : 'display: none;'}">
           <div class="inline-inputs">
             <div>
               <label>Issuance Cut</label>
               <div class="percent-wrapper">
-                <input type="number" id="stage-cut-${id}" value="50" min="0" max="100">
+                <input type="number" id="stage-cut-${id}" value="${cutValue}" min="0" max="100" onchange="EventManager.autoCalculate(); if (State.charts && State.charts.issuancePriceChart && typeof ChartManager !== 'undefined') { ChartManager.createIssuancePriceChart(); }">
               </div>
             </div>
             <div>
               <label>Cut Frequency</label>
               <div class="days-wrapper">
-                <input type="number" id="stage-period-${id}" value="90" min="1">
+                <input type="number" id="stage-period-${id}" value="${periodValue}" min="1" onchange="EventManager.autoCalculate(); if (State.charts && State.charts.issuancePriceChart && typeof ChartManager !== 'undefined') { ChartManager.createIssuancePriceChart(); }">
               </div>
             </div>
           </div>
         </div>
         
-        <label>Cash Out Tax (0-1)</label>
-        <input type="number" id="stage-tax-${id}" value="0.1" min="0" max="1" step="0.01" onchange="StageManager.updateCashOutTaxDescription(${id})">
+        <label style="margin-top: 10px; display: block;">Cash Out Tax (0-1)</label>
+        <input type="number" id="stage-tax-${id}" value="${taxValue}" min="0" max="1" step="0.01" onchange="StageManager.updateCashOutTaxDescription(${id})">
         <div id="cash-out-tax-description-${id}" style="font-size: 11px; color: #666; margin-top: 2px; margin-bottom: 15px; font-style: italic; padding-left: 2px;">
           Cashing out 10% of tokens gets 9.1% of the Revnet's balance
         </div>
         
-        <label>Duration (days) ${!isFirst ? '<span style="font-size: 10px; color: #666;">(0 = lasts forever)</span>' : ''}</label>
+        <label id="stage-duration-label-${id}" style="margin-top: 10px; display: block;">Duration (days) ${!isFirst ? '<span style="font-size: 10px; color: #666;">(0 = lasts forever)</span>' : ''}</label>
         <input type="number" id="stage-duration-${id}" value="${isFirst ? '' : '0'}" placeholder="forever" min="0" onchange="StageManager.checkForNewStage(${id})">
       </div>
     `;
@@ -55,8 +74,26 @@ const StageManager = {
     UI.$('stages').appendChild(UI.createElement(stageHTML));
     State.stages.push(id);
     
-    // Add default Team split
-    this.addSplit(id, 'Team', 50);
+    // Copy splits from previous stage if auto-added, otherwise add default Team split
+    if (autoAdded && State.stages.length > 1) {
+      const prevStageId = State.stages[State.stages.length - 2]; // Previous stage (before the one we just added)
+      const prevSplitsContainer = UI.$(`stage-splits-${prevStageId}`);
+      if (prevSplitsContainer) {
+        const prevSplitItems = prevSplitsContainer.querySelectorAll('.split-item');
+        prevSplitItems.forEach(item => {
+          const labelInput = item.querySelector('input[type="text"]');
+          const percentInput = item.querySelector('input[type="number"]');
+          const label = labelInput.value.trim();
+          const percent = parseFloat(percentInput.value) || 0;
+          if (label && percent > 0) {
+            this.addSplit(id, label, percent);
+          }
+        });
+      }
+    } else {
+      // Add default Team split
+      this.addSplit(id, 'Team', 50);
+    }
     
     // Initialize cash out tax description
     this.updateCashOutTaxDescription(id);
@@ -104,12 +141,13 @@ const StageManager = {
   updateStageDurationHints() {
     State.stages.forEach((id, index) => {
       if (index > 0) {
-        const durationInput = UI.$(`stage-duration-${id}`);
-        const label = durationInput.parentElement.querySelector('label');
-        if (index === State.stages.length - 1) {
-          label.innerHTML = 'Duration (days) <span style="font-size: 10px; color: #666;">(0 = lasts forever)</span>';
-        } else {
-          label.innerHTML = 'Duration (days)';
+        const durationLabel = UI.$(`stage-duration-label-${id}`);
+        if (durationLabel) {
+          if (index === State.stages.length - 1) {
+            durationLabel.innerHTML = 'Duration (days) <span style="font-size: 10px; color: #666;">(0 = lasts forever)</span>';
+          } else {
+            durationLabel.innerHTML = 'Duration (days)';
+          }
         }
       }
     });
@@ -119,6 +157,12 @@ const StageManager = {
     const checkbox = UI.$(`stage-has-cuts-${stageId}`);
     const cutsSection = UI.$(`stage-cuts-${stageId}`);
     cutsSection.style.display = checkbox.checked ? 'block' : 'none';
+    // Trigger recalculation and chart update when cuts are enabled/disabled
+    EventManager.autoCalculate();
+    // Also directly update issuance price chart since it depends on stage settings
+    if (State.charts && State.charts.issuancePriceChart && typeof ChartManager !== 'undefined') {
+      ChartManager.createIssuancePriceChart();
+    }
   },
 
   updateCashOutTaxDescription(stageId) {
@@ -230,9 +274,21 @@ const StageManager = {
     for (let i = 0; i < State.stages.length; i++) {
       const stageId = State.stages[i];
       const durationValue = UI.$(`stage-duration-${stageId}`).value;
-      const duration = i === 0 ? Infinity : (durationValue === '' ? 0 : parseFloat(durationValue));
+      // Parse duration: empty string or 0 means forever (Infinity) only for the last stage
+      // Otherwise, use the actual value (or 0 if empty/0 for non-last stages)
+      let duration;
+      if (i === State.stages.length - 1 && (durationValue === '' || durationValue === '0')) {
+        duration = Infinity; // Last stage with 0 duration lasts forever
+      } else if (durationValue === '' || durationValue === '0') {
+        duration = 0; // Non-last stage with 0/empty duration means 0 days
+      } else {
+        duration = parseFloat(durationValue) || 0;
+      }
       
-      if (i === State.stages.length - 1 || day < cumulativeDays + duration) {
+      // Check if this day falls within this stage's duration
+      // If it's the last stage, it always matches (duration is Infinity)
+      // Otherwise, check if day is within this stage's range
+      if (i === State.stages.length - 1 || (duration > 0 && day < cumulativeDays + duration)) {
         const splits = {};
         let totalSplitPercent = 0;
         
@@ -262,7 +318,8 @@ const StageManager = {
           issuanceCut: hasCuts ? parseFloat(UI.$(`stage-cut-${stageId}`).value) / 100 : 0,
           cutPeriod: hasCuts ? parseInt(UI.$(`stage-period-${stageId}`).value) : Infinity,
           cashOutTax: parseFloat(UI.$(`stage-tax-${stageId}`).value),
-          stageIndex: i
+          stageIndex: i,
+          stageStartDay: cumulativeDays
         };
       }
       

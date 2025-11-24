@@ -1906,6 +1906,13 @@ const EventManager = {
       
       // Insert button before the first event card
       eventsContainer.insertBefore(addButtonFirst, eventCards[0]);
+    } else {
+      // If no events, add a single "Add event" button to start
+      const addButton = document.createElement('button');
+      addButton.className = 'add-event-here';
+      addButton.textContent = 'Add event';
+      addButton.onclick = () => this.addEvent(0);
+      eventsContainer.appendChild(addButton);
     }
   },
 
@@ -1914,9 +1921,12 @@ const EventManager = {
     const currentEvents = this.getAllEvents().allEvents;
     const currentScenario = window.ScenarioManager ? window.ScenarioManager.currentScenario : null;
     
-    if (!currentScenario) return;
+    if (!currentScenario || currentScenario === 'none') return;
     
-    const scenarioEvents = window.ScenarioManager.scenarios[currentScenario].events;
+    const scenario = window.ScenarioManager.scenarios[currentScenario];
+    if (!scenario || !scenario.events) return;
+    
+    const scenarioEvents = scenario.events;
     
     // Compare events
     if (currentEvents.length !== scenarioEvents.length) {

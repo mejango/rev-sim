@@ -212,28 +212,28 @@ const ScenarioManager = {
     'hypergrowth-with-loans': {
       name: "Hypergrowth + Growth Financing",
       description: "Hypergrowth with team using loans to fuel expansion.",
-      narrative: "Building on the exponential growth pattern, the team uses substantial loans to fund aggressive expansion and capitalize on rapid growth opportunities, demonstrating how hypergrowth companies can leverage their token value for massive scaling.",
+      narrative: "Building on the exponential growth pattern, the team uses strategic loans to fund aggressive expansion and capitalize on rapid growth opportunities, demonstrating how hypergrowth companies can leverage their token value for scaling.",
       events: [
         { day: 0, type: "investment", amount: 5, label: "Seed Investor" },
-        { day: 15, type: "loan", amount: 1.0, label: "Team" },
-        { day: 45, type: "loan", amount: 1.5, label: "Team" },
+        { day: 30, type: "loan", amount: 0.3, label: "Team" },
+        { day: 60, type: "loan", amount: 0.4, label: "Team" },
         { day: 90, type: "revenue", amount: 1, label: "Q1 Revenue" },
-        { day: 105, type: "loan", amount: 2.0, label: "Team" },
-        { day: 135, type: "loan", amount: 2.5, label: "Team" },
+        { day: 120, type: "loan", amount: 0.5, label: "Team" },
+        { day: 150, type: "loan", amount: 0.6, label: "Team" },
         { day: 180, type: "revenue", amount: 2, label: "Q2 Revenue" },
-        { day: 195, type: "loan", amount: 3.0, label: "Team" },
-        { day: 225, type: "loan", amount: 3.5, label: "Team" },
+        { day: 210, type: "loan", amount: 0.7, label: "Team" },
+        { day: 240, type: "loan", amount: 0.8, label: "Team" },
         { day: 270, type: "revenue", amount: 4, label: "Q3 Revenue" },
-        { day: 285, type: "loan", amount: 4.0, label: "Team" },
-        { day: 315, type: "loan", amount: 4.5, label: "Team" },
+        { day: 300, type: "loan", amount: 0.9, label: "Team" },
+        { day: 330, type: "loan", amount: 1.0, label: "Team" },
         { day: 360, type: "revenue", amount: 8, label: "Q4 Revenue" },
-        { day: 375, type: "loan", amount: 5.0, label: "Team" },
-        { day: 405, type: "loan", amount: 5.5, label: "Team" },
+        { day: 390, type: "loan", amount: 1.1, label: "Team" },
+        { day: 420, type: "loan", amount: 1.2, label: "Team" },
         { day: 450, type: "revenue", amount: 16, label: "Q5 Revenue" },
-        { day: 465, type: "loan", amount: 6.0, label: "Team" },
-        { day: 495, type: "loan", amount: 6.5, label: "Team" },
+        { day: 480, type: "loan", amount: 1.3, label: "Team" },
+        { day: 510, type: "loan", amount: 1.4, label: "Team" },
         { day: 540, type: "revenue", amount: 32, label: "Q6 Revenue" },
-        { day: 555, type: "payback-loan", amount: 3.0, label: "Team" }
+        { day: 570, type: "payback-loan", amount: 0.8, label: "Team" }
       ]
     },
 
@@ -336,6 +336,18 @@ const ScenarioManager = {
     }
   },
 
+  collapseScenariosDropdown() {
+    const container = document.getElementById('scenarios-container');
+    if (container) {
+      container.style.display = 'none';
+      const toggleIcon = container.previousElementSibling?.querySelector('.toggle-icon');
+      if (toggleIcon) {
+        toggleIcon.textContent = '▶';
+        toggleIcon.style.transform = 'rotate(0deg)';
+      }
+    }
+  },
+
   loadGrowthScenario(scenarioKey) {
     const scenario = this.scenarios[scenarioKey];
     if (!scenario) {
@@ -395,6 +407,9 @@ const ScenarioManager = {
 
     // Set as current scenario
     this.setCurrentScenario(scenarioKey);
+    
+    // Expand Events section so users can see and customize the loaded events
+    this.expandEventsSection();
 
     // Show success message
     this.showNotification(`Loaded "${scenario.name}" scenario`, 'success');
@@ -411,6 +426,9 @@ const ScenarioManager = {
     
     // Force recalculation
     EventManager.forceRecalculation();
+    
+    // Collapse the scenarios dropdown after selection
+    this.collapseScenariosDropdown();
   },
 
   addOperationsEvents(operationsEvents, operationsScenarioKey) {
@@ -615,6 +633,51 @@ const ScenarioManager = {
     descriptionElement.style.display = 'block';
   },
 
+  loadNone() {
+    // Clear scenario and set to None
+    this.clearScenario();
+    this.setCurrentScenario('none');
+    this.selectedOperationsScenarios.clear();
+    
+    // Clear operations scenario checkboxes
+    document.querySelectorAll('.scenario-checkbox').forEach(checkbox => {
+      checkbox.checked = false;
+    });
+    
+    // Clear capital access scenarios display
+    const container = document.getElementById('capital-access-buttons');
+    if (container) {
+      container.innerHTML = '<p style="color: #666; font-style: italic;">Select a growth scenario to see operations options</p>';
+    }
+    
+    // Recreate charts with empty data so axes are visible
+    if (typeof ChartManager !== 'undefined') {
+      ChartManager.createAll();
+    }
+    
+    // Expand Events section so users can start adding their own events
+    this.expandEventsSection();
+    
+    // Collapse the scenarios dropdown after selection
+    this.collapseScenariosDropdown();
+    
+    // Don't show notification for default "None" selection
+    // this.showNotification('Cleared scenario - starting with blank slate', 'info');
+  },
+
+  expandEventsSection() {
+    const eventsContainer = document.getElementById('events-container');
+    const eventsHeader = eventsContainer ? eventsContainer.previousElementSibling : null;
+    if (eventsContainer && eventsHeader) {
+      eventsContainer.style.display = 'block';
+      const toggleIcon = eventsHeader.querySelector('.toggle-icon');
+      if (toggleIcon) {
+        toggleIcon.textContent = '▼';
+        toggleIcon.style.transform = 'rotate(0deg)';
+      }
+    }
+  },
+
   clearScenario() {
     // Clear all events (but keep stages)
     State.events.forEach(eventId => {
@@ -623,6 +686,11 @@ const ScenarioManager = {
     });
     State.events = [];
     State.counters.event = 0;
+
+    // Clear "Add event" buttons
+    if (typeof EventManager !== 'undefined' && EventManager.updateAddEventButtons) {
+      EventManager.updateAddEventButtons();
+    }
 
     // Clear results
     State.calculationResults = [];
@@ -645,8 +713,6 @@ const ScenarioManager = {
     // Hide scenario description
     const descriptionElement = UI.$('scenario-description');
     if (descriptionElement) descriptionElement.style.display = 'none';
-
-    this.showNotification('Cleared all data', 'info');
   },
 
   // Track current scenario state
@@ -671,7 +737,25 @@ const ScenarioManager = {
   setCurrentScenario(scenarioKey) {
     this.currentScenario = scenarioKey;
     this.updateSelectedIndicator();
+    this.updateSelectedButton();
     this.hideSaveButton();
+  },
+
+  // Update selected button visual state
+  updateSelectedButton() {
+    // Remove selected class from all scenario buttons
+    document.querySelectorAll('.scenario-btn').forEach(btn => {
+      btn.classList.remove('selected');
+    });
+    
+    // Add selected class to current scenario button
+    if (this.currentScenario === 'none') {
+      const noneBtn = document.getElementById('scenario-btn-none');
+      if (noneBtn) noneBtn.classList.add('selected');
+    } else if (this.currentScenario) {
+      const btn = document.getElementById(`scenario-btn-${this.currentScenario}`);
+      if (btn) btn.classList.add('selected');
+    }
   },
 
   // Update selected scenario indicator
@@ -679,7 +763,9 @@ const ScenarioManager = {
     const indicator = document.getElementById('selected-scenario-indicator');
     const nameSpan = document.getElementById('selected-scenario-name');
     
-    if (this.currentScenario && this.scenarios[this.currentScenario]) {
+    if (this.currentScenario === 'none') {
+      if (indicator) indicator.style.display = 'none';
+    } else if (this.currentScenario && this.scenarios[this.currentScenario]) {
       if (indicator && nameSpan) {
         indicator.style.display = 'block';
         nameSpan.textContent = this.scenarios[this.currentScenario].name;

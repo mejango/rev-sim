@@ -98,10 +98,7 @@ const ChartManager = {
   },
 
   createAll() {
-    if (!State.calculationResults || State.calculationResults.length === 0) {
-      return;
-    }
-    
+    // Always create charts, even with empty data, so axes are visible
     this.createCashFlowChart();
     this.createTokenChart();
     this.createTokenValuationChart();
@@ -696,24 +693,15 @@ const ChartManager = {
     try {
       const data = this.prepareTokenValuationChartData();
       
-      if (!data || !data.datasets) {
+      if (!data) {
         console.warn('No data available for Token Valuations chart');
         return;
       }
       
-      if (data.datasets.length === 0) {
-        console.warn('Token Valuations chart has no datasets');
-        return;
-      }
-      
-      // Check if datasets have valid data - but be less aggressive
-      const hasValidData = data.datasets.some(dataset => 
-        dataset.data && dataset.data.length > 0
-      );
-      
-      if (!hasValidData) {
-        console.warn('Token Valuations chart has no datasets with data');
-        return;
+      // Always create chart, even with empty datasets, so axes are visible
+      // If no datasets, create an empty array
+      if (!data.datasets) {
+        data.datasets = [];
       }
       
                 State.charts.tokenValuationChart = new Chart(ctx, {
@@ -760,14 +748,15 @@ const ChartManager = {
     try {
       const data = this.prepareTokenPerformanceChartData();
       
-      if (!data || !data.datasets) {
+      if (!data) {
         console.warn('No data available for Token Performance chart');
         return;
       }
       
-      if (data.datasets.length === 0) {
-        console.warn('Token Performance chart has no datasets');
-        return;
+      // Always create chart, even with empty datasets, so axes are visible
+      // If no datasets, create an empty array
+      if (!data.datasets) {
+        data.datasets = [];
       }
       
       State.charts.tokenPerformanceChart = new Chart(ctx, {
@@ -811,7 +800,8 @@ const ChartManager = {
   // Shared function to create event-driven X-axis labels
   createEventDrivenLabels() {
     if (!State.calculationResults || State.calculationResults.length === 0) {
-      return [];
+      // Return default labels so axes are visible even with no data
+      return [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360, 390, 420, 450, 480, 510, 540];
     }
 
     const labels = [];
@@ -1246,11 +1236,46 @@ const ChartManager = {
     }
 
     const labels = this.createEventDrivenLabels();
+    let currentPrice = 1.0;
+    let currentStageIndex = -1;
+    let stageStartPrice = 1.0;
+    let prevStageEndPrice = 1.0;
+    
     const issuancePrice = labels.map(day => {
       const stage = StageManager.getStageAtDay(day);
-      if (!stage || !stage.hasCuts) return 1.0;
-      const numCuts = Math.floor(day / stage.cutPeriod);
-      return Math.pow(1 + stage.issuanceCut, numCuts);
+      if (!stage) return currentPrice;
+      
+      // Check if we've moved to a new stage
+      if (stage.stageIndex !== currentStageIndex) {
+        // When entering a new stage, use the end price of the previous stage
+        if (currentStageIndex >= 0 && day > 0) {
+          // We're transitioning to a new stage
+          // Use the price we calculated for the previous day (end of previous stage)
+          stageStartPrice = prevStageEndPrice;
+        } else {
+          // First stage, start at 1.0
+          stageStartPrice = 1.0;
+        }
+        
+        // Update to new stage
+        currentStageIndex = stage.stageIndex;
+      }
+      
+      // Calculate price for this day using current stage's settings
+      if (!stage.hasCuts) {
+        // No cuts in this stage, maintain the price from when we entered this stage
+        currentPrice = stageStartPrice;
+      } else {
+        // Calculate cuts relative to the start of this stage
+        const daysSinceStageStart = day - stage.stageStartDay;
+        const numCuts = Math.floor(daysSinceStageStart / stage.cutPeriod);
+        currentPrice = stageStartPrice * Math.pow(1 + stage.issuanceCut, numCuts);
+      }
+      
+      // Store the price for potential use in next stage transition
+      prevStageEndPrice = currentPrice;
+      
+      return currentPrice;
     });
 
     return {
@@ -1679,8 +1704,9 @@ const ChartManager = {
 
   prepareTokenValuationChartData() {
     if (!State.calculationResults || State.calculationResults.length === 0) {
-      console.warn('No calculation results available for Token Valuations chart');
-      return { labels: [], datasets: [] };
+      // Return default labels for empty chart to show axes
+      const defaultLabels = this.createEventDrivenLabels();
+      return { labels: defaultLabels, datasets: [] };
     }
     
 
@@ -1757,7 +1783,9 @@ const ChartManager = {
 
   prepareTokenPerformanceChartData() {
     if (!State.calculationResults || State.calculationResults.length === 0) {
-      return { labels: [], datasets: [] };
+      // Return default labels for empty chart to show axes
+      const defaultLabels = this.createEventDrivenLabels();
+      return { labels: defaultLabels, datasets: [] };
     }
 
     const labels = this.createEventDrivenLabels();
