@@ -5,7 +5,7 @@ const State = {
   calculationResults: [],
   charts: {},
   isInitializing: true,
-  counters: { stage: 0, event: 0, split: 0 }
+  counters: { stage: 0, event: 0, split: 0, autoIssuance: 0 }
 };
 
 const StateMachine = {
@@ -34,6 +34,95 @@ const StateMachine = {
     let tokensByLabel = {};
     let dayLabeledInvestorLoans = {};
     let loanHistory = {};
+    
+    // Process auto issuances for stages that start on or before the target day
+    // Use same price calculation logic as chart manager to handle stage transitions
+    if (typeof StageManager !== 'undefined' && State.stages && State.stages.length > 0) {
+      let cumulativeDays = 0;
+      let stageStartPrice = 1.0;
+      let prevStageEndPrice = 1.0;
+      
+      for (let i = 0; i < State.stages.length; i++) {
+        const stageId = State.stages[i];
+        const stageStartDay = cumulativeDays;
+        
+        // Check if this stage starts on or before the target day
+        if (stageStartDay <= targetDay) {
+          const stage = StageManager.getStageAtDay(stageStartDay);
+          
+          if (stage) {
+            // Calculate the price at the start of this stage
+            if (i > 0 && stageStartDay > 0) {
+              // Use the end price of the previous stage
+              stageStartPrice = prevStageEndPrice;
+            } else {
+              // First stage, start at 1.0
+              stageStartPrice = 1.0;
+            }
+            
+            // Calculate current price at stage start (for auto issuance)
+            // At stage start, daysSinceStageStart is 0, so price is just stageStartPrice
+            let issuancePrice = stageStartPrice;
+            
+            // Process auto issuances for this stage
+            if (stage.autoIssuances && stage.autoIssuances.length > 0) {
+              stage.autoIssuances.forEach(issuance => {
+                const tokensPerDollar = 1 / issuancePrice;
+                const newTokens = issuance.amount * tokensPerDollar;
+                totalSupply += newTokens;
+                
+                // Add tokens to the label
+                const normalizedLabel = Utils.normalizeLabel(issuance.label);
+                if (!tokensByLabel[normalizedLabel]) {
+                  tokensByLabel[normalizedLabel] = 0;
+                }
+                tokensByLabel[normalizedLabel] += newTokens;
+              });
+            }
+            
+            // Calculate the end price of this stage for next iteration
+            // We need to calculate what the price would be at the end of this stage
+            // For simplicity, calculate based on the stage's duration or targetDay
+            const durationValue = UI.$(`stage-duration-${stageId}`)?.value;
+            let stageEndDay;
+            if (i === State.stages.length - 1 && (durationValue === '' || durationValue === '0')) {
+              // Last stage - use targetDay as the end
+              stageEndDay = targetDay;
+            } else if (durationValue === '' || durationValue === '0') {
+              stageEndDay = stageStartDay;
+            } else {
+              const duration = parseFloat(durationValue) || 0;
+              stageEndDay = Math.min(stageStartDay + duration, targetDay);
+            }
+            
+            if (stage.hasCuts) {
+              const daysSinceStageStart = stageEndDay - stageStartDay;
+              const numCuts = Math.floor(daysSinceStageStart / stage.cutPeriod);
+              prevStageEndPrice = stageStartPrice * Math.pow(1 + stage.issuanceCut, numCuts);
+            } else {
+              prevStageEndPrice = stageStartPrice;
+            }
+          }
+        }
+        
+        // Calculate cumulative days for next iteration
+        const durationValue = UI.$(`stage-duration-${stageId}`)?.value;
+        let duration;
+        if (i === State.stages.length - 1 && (durationValue === '' || durationValue === '0')) {
+          duration = Infinity;
+        } else if (durationValue === '' || durationValue === '0') {
+          duration = 0;
+        } else {
+          duration = parseFloat(durationValue) || 0;
+        }
+        
+        if (duration !== Infinity) {
+          cumulativeDays += duration;
+        } else {
+          break; // Last stage lasts forever
+        }
+      }
+    }
     
     // Process all events up to the target day
     eventsUpToDay.forEach(event => {

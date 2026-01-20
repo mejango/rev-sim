@@ -66,6 +66,18 @@ const StageManager = {
           Cashing out 10% of tokens gets 9.1% of the Revnet's balance
         </div>
         
+        <details style="border: 1px solid #e0e0e0; margin: 10px 0; background-color: #fafafa; border-radius: 4px;">
+          <summary style="padding: 8px; cursor: pointer; font-size: 11px; color: #666; font-style: italic;">Auto Issuance (optional)</summary>
+          <div style="padding: 8px; font-size: 11px;">
+            <p style="margin: 0 0 8px 0; color: #666; font-size: 10px;">Create tokens at the start of this stage without receiving payment. Tokens are issued at the current issuance price. Labels are tracked in the graph.</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="font-size: 11px; color: #333;">Issuances</span>
+              <button class="small" onclick="StageManager.addAutoIssuance(${id})">+ Add</button>
+            </div>
+            <div id="stage-auto-issuances-${id}"></div>
+          </div>
+        </details>
+        
         <label id="stage-duration-label-${id}" style="margin-top: 10px; display: block;">Duration (days) ${!isFirst ? '<span style="font-size: 10px; color: #666;">(0 = lasts forever)</span>' : ''}</label>
         <input type="number" id="stage-duration-${id}" value="${isFirst ? '' : '0'}" placeholder="forever" min="0" onchange="StageManager.checkForNewStage(${id})">
       </div>
@@ -87,6 +99,24 @@ const StageManager = {
           const percent = parseFloat(percentInput.value) || 0;
           if (label && percent > 0) {
             this.addSplit(id, label, percent);
+          }
+        });
+      }
+      
+      // Copy auto issuances from previous stage
+      const prevIssuancesContainer = UI.$(`stage-auto-issuances-${prevStageId}`);
+      if (prevIssuancesContainer) {
+        const prevIssuanceItems = prevIssuancesContainer.querySelectorAll('[id^="auto-issuance-"]');
+        prevIssuanceItems.forEach(item => {
+          const issuanceId = item.id.replace('auto-issuance-', '');
+          const labelInput = UI.$(`auto-issuance-label-${issuanceId}`);
+          const amountInput = UI.$(`auto-issuance-amount-${issuanceId}`);
+          if (labelInput && amountInput) {
+            const label = labelInput.value.trim();
+            const amount = parseFloat(amountInput.value) || 0;
+            if (label && amount > 0) {
+              this.addAutoIssuance(id, label, amount);
+            }
           }
         });
       }
@@ -269,6 +299,30 @@ const StageManager = {
     return Array.from(labels);
   },
 
+  addAutoIssuance(stageId, defaultLabel = '', defaultAmount = 0) {
+    const issuanceId = State.counters.autoIssuance++;
+    
+    const issuanceHTML = `
+      <div class="split-item auto-issuance-item" id="auto-issuance-${issuanceId}">
+        <input type="text" id="auto-issuance-label-${issuanceId}" placeholder="Label" value="${defaultLabel}" onchange="EventManager.autoCalculate();">
+        <input type="number" id="auto-issuance-amount-${issuanceId}" placeholder="Value ($M)" value="${defaultAmount}" min="0" step="0.1" title="Dollar value of tokens to create (no payment received)" onchange="EventManager.autoCalculate();">
+        <button class="small remove" onclick="StageManager.removeAutoIssuance(${stageId}, ${issuanceId})">×</button>
+      </div>
+    `;
+    
+    UI.$(`stage-auto-issuances-${stageId}`).appendChild(UI.createElement(issuanceHTML));
+    
+    // Auto-calculate after adding issuance
+    setTimeout(() => EventManager.autoCalculate(), 100);
+  },
+
+  removeAutoIssuance(stageId, issuanceId) {
+    UI.$(`auto-issuance-${issuanceId}`).remove();
+    
+    // Auto-calculate after removing issuance
+    setTimeout(() => EventManager.autoCalculate(), 100);
+  },
+
   getStageAtDay(day) {
     let cumulativeDays = 0;
     for (let i = 0; i < State.stages.length; i++) {
@@ -311,6 +365,25 @@ const StageManager = {
         const investorSplit = Math.max(0, (100 - totalSplitPercent) / 100);
         const hasCuts = UI.$(`stage-has-cuts-${stageId}`).checked;
         
+        // Get auto issuances for this stage
+        const autoIssuances = [];
+        const issuancesContainer = UI.$(`stage-auto-issuances-${stageId}`);
+        if (issuancesContainer) {
+          const issuanceItems = issuancesContainer.querySelectorAll('[id^="auto-issuance-"]');
+          issuanceItems.forEach(item => {
+            const issuanceId = item.id.replace('auto-issuance-', '');
+            const labelInput = UI.$(`auto-issuance-label-${issuanceId}`);
+            const amountInput = UI.$(`auto-issuance-amount-${issuanceId}`);
+            if (labelInput && amountInput) {
+              const label = labelInput.value.trim();
+              const amount = parseFloat(amountInput.value) || 0;
+              if (label && amount > 0) {
+                autoIssuances.push({ label, amount });
+              }
+            }
+          });
+        }
+        
         return {
           splits: splits,
           investorSplit: investorSplit,
@@ -318,6 +391,7 @@ const StageManager = {
           issuanceCut: hasCuts ? parseFloat(UI.$(`stage-cut-${stageId}`).value) / 100 : 0,
           cutPeriod: hasCuts ? parseInt(UI.$(`stage-period-${stageId}`).value) : Infinity,
           cashOutTax: parseFloat(UI.$(`stage-tax-${stageId}`).value),
+          autoIssuances: autoIssuances,
           stageIndex: i,
           stageStartDay: cumulativeDays
         };
